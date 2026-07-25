@@ -1,0 +1,25 @@
+{
+  "name": "RUN360X - Corrida Gamificada",
+  "short_name": "RUN360X",
+  "description": "App tático de corrida de rua com GPS em tempo real, Corredor Fantasma, mapa de calor e desafios da comunidade.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#020617",
+  "orientation": "portrait",
+  "categories": ["sports", "fitness", "health"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

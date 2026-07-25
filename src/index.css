@@ -1,0 +1,100 @@
+@import "tailwindcss";
+
+@keyframes neonUnlock {
+  0% {
+    transform: scale(0.85);
+    opacity: 0;
+    filter: brightness(2.5) drop-shadow(0 0 35px #00f0ff);
+    box-shadow: 0 0 0px rgba(0, 240, 255, 0);
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 1;
+    filter: brightness(2) drop-shadow(0 0 50px #00f0ff);
+    box-shadow: 0 0 40px rgba(0, 240, 255, 0.8), inset 0 0 25px rgba(0, 240, 255, 0.5);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+    filter: brightness(1) drop-shadow(0 0 15px rgba(0, 240, 255, 0.4));
+    box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
+  }
+}
+
+@keyframes badgeShine {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes neonGlowPulse {
+  0%, 100% {
+    box-shadow: 0 0 12px rgba(0, 240, 255, 0.3), inset 0 0 8px rgba(0, 240, 255, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 28px rgba(0, 240, 255, 0.75), inset 0 0 16px rgba(0, 240, 255, 0.35);
+  }
+}
+
+.animate-neon-unlock {
+  animation: neonUnlock 0.9s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+.animate-neon-glow-pulse {
+  animation: neonGlowPulse 2.5s infinite ease-in-out;
+}
+
+.badge-unlock-glow {
+  position: relative;
+  overflow: hidden;
+}
+
+.badge-unlock-glow::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 200%;
+  height: 100%;
+  background: linear-gradient(
+    115deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.25) 45%,
+    rgba(255, 255, 255, 0.6) 50%,
+    rgba(255, 255, 255, 0.25) 55%,
+    transparent 100%
+  );
+  animation: badgeShine 3s infinite linear;
+  pointer-events: none;
+}
+
+@keyframes neonFlicker {
+  0%, 100% {
+    text-shadow: 0 0 4px #00f0ff, 0 0 10px #00f0ff, 0 0 20px rgba(0, 240, 255, 0.6);
+    opacity: 1;
+  }
+  20% {
+    opacity: 0.75;
+    text-shadow: 0 0 2px #00f0ff;
+  }
+  20.5% {
+    opacity: 1;
+    text-shadow: 0 0 6px #00f0ff, 0 0 12px #00f0ff;
+  }
+  50% {
+    text-shadow: 0 0 8px #00f0ff, 0 0 20px #00f0ff, 0 0 35px rgba(0, 240, 255, 0.8);
+    opacity: 1;
+  }
+  70% {
+    text-shadow: 0 0 4px #00f0ff, 0 0 10px #00f0ff;
+    opacity: 0.95;
+  }
+}
+
+.animate-neon-flicker {
+  animation: neonFlicker 3s infinite ease-in-out;
+}
+

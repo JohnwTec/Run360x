@@ -1,0 +1,43 @@
+{
+  "entities": {
+    "RunSession": {
+      "title": "RunSession",
+      "description": "Rastreamento tático de sessão de corrida registrada pelo usuário.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "ID do corredor autor da sessão" },
+        "distance": { "type": "number", "description": "Distância total percorrida em km" },
+        "duration": { "type": "number", "description": "Duração em segundos" },
+        "pace": { "type": "string", "description": "Pace médio formatado mm:ss" },
+        "calories": { "type": "number", "description": "Calorias queimadas" },
+        "elevationGain": { "type": "number", "description": "Elevação acumulada em metros" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Data/hora da atividade" }
+      },
+      "required": ["userId", "distance", "duration", "pace"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Perfil tático do atleta e progresso gamificado.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "ID do usuário no Firebase Auth" },
+        "displayName": { "type": "string", "description": "Codinome do corredor" },
+        "level": { "type": "number", "description": "Nível de patente tática" },
+        "xp": { "type": "number", "description": "Pontos de experiência acumulados" },
+        "totalDistance": { "type": "number", "description": "Distância total corrida no app em km" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Data da última atualização de status" }
+      },
+      "required": ["userId", "displayName", "level", "xp"]
+    }
+  },
+  "firestore": {
+    "/runs/{runId}": {
+      "schema": { "$ref": "#/entities/RunSession" },
+      "description": "Coleção global de sessões de corrida registradas"
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Dados do perfil tático do usuário"
+    }
+  }
+}
