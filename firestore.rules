@@ -1,29 +1,497 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Default deny
+
+    // Pillar 0: Global default deny
     match /{document=**} {
       allow read, write: if false;
     }
 
+    // Global hardened primitives
     function isSignedIn() {
       return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
     }
 
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    match /users/{userId} {
-      allow read: if isSignedIn();
-      allow create, update: if isOwner(userId);
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Validation Blueprint: UserProfile
+    function isValidUserProfile(data, userId) {
+      return data.keys().hasAll(['userId', 'displayName', 'level', 'xp', 'updatedAt'])
+        && data.keys().hasOnly(['userId', 'displayName', 'level', 'xp', 'totalDistance', 'updatedAt'])
+        && data.userId is string && data.userId == userId && isValidId(data.userId)
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 80
+        && data.level is number && data.level >= 1 && data.level <= 99
+        && data.xp is number && data.xp >= 0 && data.xp <= 10000000
+        && (!('totalDistance' in data) || (data.totalDistance is number && data.totalDistance >= 0 && data.totalDistance <= 500000))
+        && data.updatedAt == request.time;
+    }
+
+    // Validation Blueprint: RunSession
+    function isValidRunSession(data) {
+      return data.keys().hasAll(['userId', 'distance', 'duration', 'pace', 'createdAt'])
+        && data.keys().hasOnly(['userId', 'distance', 'duration', 'pace', 'calories', 'elevationGain', 'createdAt'])
+        && data.userId is string && data.userId == request.auth.uid && isValidId(data.userId)
+        && data.distance is number && data.distance >= 0 && data.distance <= 500
+        && data.duration is number && data.duration >= 0 && data.duration <= 86400
+        && data.pace is string && data.pace.size() >= 1 && data.pace.size() <= 16
+        && (!('calories' in data) || (data.calories is number && data.calories >= 0 && data.calories <= 50000))
+        && (!('elevationGain' in data) || (data.elevationGain is number && data.elevationGain >= 0 && data.elevationGain <= 20000))
+        && data.createdAt is timestamp;
+    }
+
+    // Validation Blueprint: CommunityPost
+    function isValidCommunityPost(data) {
+      return data.keys().hasAll([
+          'authorId', 'authorName', 'authorAvatar', 'authorLevel',
+          'ageCategoryLabel', 'genderLabel', 'achievementTitle', 'vibrantText',
+          'overlayStyle', 'hudAnchor', 'distanceKm', 'avgPaceMinKm',
+          'fastestKmPaceMinKm', 'avgSpeedKmh', 'durationSeconds', 'xpGained',
+          'routeLine', 'photoDataUrl', 'visibility', 'kudosCount', 'commentsCount', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'authorId', 'authorName', 'authorAvatar', 'authorLevel',
+          'ageCategoryLabel', 'genderLabel', 'achievementTitle', 'vibrantText',
+          'overlayStyle', 'hudAnchor', 'distanceKm', 'avgPaceMinKm',
+          'fastestKmPaceMinKm', 'avgSpeedKmh', 'durationSeconds', 'xpGained',
+          'routeLine', 'photoDataUrl', 'visibility', 'kudosCount', 'commentsCount', 'createdAt'
+        ])
+        && data.authorId is string && isValidId(data.authorId)
+        && data.authorName is string && data.authorName.size() >= 1 && data.authorName.size() <= 80
+        && data.authorAvatar is string && data.authorAvatar.size() <= 300
+        && data.authorLevel is number && data.authorLevel >= 1 && data.authorLevel <= 99
+        && data.ageCategoryLabel is string && data.ageCategoryLabel.size() >= 1 && data.ageCategoryLabel.size() <= 40
+        && data.genderLabel is string && data.genderLabel.size() >= 1 && data.genderLabel.size() <= 24
+        && data.achievementTitle is string && data.achievementTitle.size() >= 1 && data.achievementTitle.size() <= 90
+        && data.vibrantText is string && data.vibrantText.size() <= 120
+        && data.overlayStyle is string && data.overlayStyle in ['neon', 'solar', 'emerald', 'crystal']
+        && data.hudAnchor is string && data.hudAnchor in ['top', 'center', 'bottom']
+        && data.distanceKm is number && data.distanceKm >= 0 && data.distanceKm <= 500
+        && data.avgPaceMinKm is number && data.avgPaceMinKm >= 1.5 && data.avgPaceMinKm <= 30
+        && data.fastestKmPaceMinKm is number && data.fastestKmPaceMinKm >= 1.5 && data.fastestKmPaceMinKm <= 30
+        && data.avgSpeedKmh is number && data.avgSpeedKmh >= 0 && data.avgSpeedKmh <= 60
+        && data.durationSeconds is number && data.durationSeconds >= 0 && data.durationSeconds <= 86400
+        && data.xpGained is number && data.xpGained >= 0 && data.xpGained <= 100000
+        && data.routeLine is list && data.routeLine.size() <= 48
+        && (data.routeLine.size() == 0 || (data.routeLine[0] is string && data.routeLine[0].size() <= 24))
+        && data.photoDataUrl is string && data.photoDataUrl.size() <= 260000
+        && data.visibility is string && data.visibility == 'community'
+        && data.kudosCount is number && data.kudosCount >= 0 && data.kudosCount <= 1000000
+        && data.commentsCount is number && data.commentsCount >= 0 && data.commentsCount <= 1000000
+        && data.createdAt is timestamp;
+    }
+
+    // Validation Blueprint: CommunityKudo
+    function isValidCommunityKudo(data, postId, kudoUserId) {
+      return data.keys().hasAll(['postId', 'userId', 'userName', 'createdAt'])
+        && data.keys().hasOnly(['postId', 'userId', 'userName', 'createdAt'])
+        && data.postId is string && data.postId == postId && isValidId(data.postId)
+        && data.userId is string && data.userId == kudoUserId && data.userId == request.auth.uid && isValidId(data.userId)
+        && data.userName is string && data.userName.size() >= 1 && data.userName.size() <= 80
+        && data.createdAt == request.time;
+    }
+
+    // Validation Blueprint: CommunityComment
+    function isValidCommunityComment(data, postId) {
+      return data.keys().hasAll(['postId', 'authorId', 'authorName', 'text', 'createdAt'])
+        && data.keys().hasOnly(['postId', 'authorId', 'authorName', 'text', 'createdAt'])
+        && data.postId is string && data.postId == postId && isValidId(data.postId)
+        && data.authorId is string && data.authorId == request.auth.uid && isValidId(data.authorId)
+        && data.authorName is string && data.authorName.size() >= 1 && data.authorName.size() <= 80
+        && data.text is string && data.text.size() >= 1 && data.text.size() <= 240
+        && data.createdAt == request.time;
+    }
+
+    // Validation Blueprint: RunningTeam
+    function isValidRunningTeam(data) {
+      return data.keys().hasAll([
+          'name', 'tag', 'city', 'motto', 'emblem', 'accentColor',
+          'creatorId', 'creatorName', 'memberCount', 'totalPoints',
+          'totalKm', 'monthlyPoints', 'monthlyKm', 'avgPaceMinKm',
+          'visibility', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'name', 'tag', 'city', 'motto', 'emblem', 'accentColor',
+          'creatorId', 'creatorName', 'memberCount', 'totalPoints',
+          'totalKm', 'monthlyPoints', 'monthlyKm', 'avgPaceMinKm',
+          'visibility', 'createdAt', 'updatedAt'
+        ])
+        && data.name is string && data.name.size() >= 2 && data.name.size() <= 60
+        && data.tag is string && data.tag.size() >= 2 && data.tag.size() <= 6 && data.tag.matches('^[A-Z0-9]+$')
+        && data.city is string && data.city.size() >= 2 && data.city.size() <= 60
+        && data.motto is string && data.motto.size() <= 140
+        && data.emblem is string && data.emblem.size() >= 1 && data.emblem.size() <= 16
+        && data.accentColor is string && data.accentColor in ['cyan', 'amber', 'emerald', 'rose', 'violet', 'orange']
+        && data.creatorId is string && isValidId(data.creatorId)
+        && data.creatorName is string && data.creatorName.size() >= 1 && data.creatorName.size() <= 80
+        && data.memberCount is number && data.memberCount >= 1 && data.memberCount <= 50
+        && data.totalPoints is number && data.totalPoints >= 0 && data.totalPoints <= 50000000
+        && data.totalKm is number && data.totalKm >= 0 && data.totalKm <= 1000000
+        && data.monthlyPoints is number && data.monthlyPoints >= 0 && data.monthlyPoints <= 10000000
+        && data.monthlyKm is number && data.monthlyKm >= 0 && data.monthlyKm <= 200000
+        && data.avgPaceMinKm is number && data.avgPaceMinKm >= 2.0 && data.avgPaceMinKm <= 25.0
+        && data.visibility is string && data.visibility == 'community'
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    // Validation Blueprint: TeamMember
+    function isValidTeamMember(data, teamId, memberId) {
+      return data.keys().hasAll([
+          'teamId', 'memberId', 'name', 'avatar', 'role', 'city',
+          'ageCategory', 'gender', 'totalPoints', 'totalKm',
+          'monthlyPoints', 'monthlyKm', 'avgPaceMinKm', 'addedBy', 'joinedAt'
+        ])
+        && data.keys().hasOnly([
+          'teamId', 'memberId', 'name', 'avatar', 'role', 'city',
+          'ageCategory', 'gender', 'totalPoints', 'totalKm',
+          'monthlyPoints', 'monthlyKm', 'avgPaceMinKm', 'addedBy', 'joinedAt'
+        ])
+        && data.teamId is string && data.teamId == teamId && isValidId(data.teamId)
+        && data.memberId is string && data.memberId == memberId && isValidId(data.memberId)
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 80
+        && data.avatar is string && data.avatar.size() >= 1 && data.avatar.size() <= 16
+        && data.role is string && data.role in ['capitao', 'integrante']
+        && data.city is string && data.city.size() <= 60
+        && data.ageCategory is string && data.ageCategory in ['ate-20', '21-30', '31-40', '41-50', '50-plus']
+        && data.gender is string && data.gender in ['masculino', 'feminino']
+        && data.totalPoints is number && data.totalPoints >= 0 && data.totalPoints <= 10000000
+        && data.totalKm is number && data.totalKm >= 0 && data.totalKm <= 500000
+        && data.monthlyPoints is number && data.monthlyPoints >= 0 && data.monthlyPoints <= 2000000
+        && data.monthlyKm is number && data.monthlyKm >= 0 && data.monthlyKm <= 100000
+        && data.avgPaceMinKm is number && data.avgPaceMinKm >= 2.0 && data.avgPaceMinKm <= 25.0
+        && data.addedBy is string && data.addedBy == request.auth.uid && isValidId(data.addedBy)
+        && data.joinedAt == request.time;
+    }
+
+    // Validation Blueprint: DuelSession
+    function isValidDuelSession(data) {
+      return data.keys().hasAll([
+          'roomCode', 'missionId', 'missionTitle', 'targetDistanceKm', 'lapDistanceMeters',
+          'status', 'visibility',
+          'hostId', 'hostName', 'hostAvatar', 'hostLat', 'hostLng', 'hostHeading',
+          'hostDistanceMeters', 'hostPaceMinKm', 'hostCurrentLap', 'hostElapsedSeconds',
+          'guestId', 'guestName', 'guestAvatar', 'guestLat', 'guestLng', 'guestHeading',
+          'guestDistanceMeters', 'guestPaceMinKm', 'guestCurrentLap', 'guestElapsedSeconds',
+          'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'roomCode', 'missionId', 'missionTitle', 'targetDistanceKm', 'lapDistanceMeters',
+          'status', 'visibility',
+          'hostId', 'hostName', 'hostAvatar', 'hostLat', 'hostLng', 'hostHeading',
+          'hostDistanceMeters', 'hostPaceMinKm', 'hostCurrentLap', 'hostElapsedSeconds',
+          'guestId', 'guestName', 'guestAvatar', 'guestLat', 'guestLng', 'guestHeading',
+          'guestDistanceMeters', 'guestPaceMinKm', 'guestCurrentLap', 'guestElapsedSeconds',
+          'createdAt', 'updatedAt'
+        ])
+        && data.roomCode is string && data.roomCode.size() >= 2 && data.roomCode.size() <= 12 && data.roomCode.matches('^[A-Z0-9\\-]+$')
+        && data.missionId is string && data.missionId.size() >= 1 && data.missionId.size() <= 40
+        && data.missionTitle is string && data.missionTitle.size() >= 1 && data.missionTitle.size() <= 100
+        && data.targetDistanceKm is number && data.targetDistanceKm >= 0.5 && data.targetDistanceKm <= 100
+        && data.lapDistanceMeters is number && data.lapDistanceMeters >= 100 && data.lapDistanceMeters <= 5000
+        && data.status is string && data.status in ['waiting', 'active', 'finished']
+        && data.visibility is string && data.visibility == 'duel'
+        && data.hostId is string && isValidId(data.hostId)
+        && data.hostName is string && data.hostName.size() >= 1 && data.hostName.size() <= 80
+        && data.hostAvatar is string && data.hostAvatar.size() >= 1 && data.hostAvatar.size() <= 16
+        && data.hostLat is number && data.hostLat >= -90 && data.hostLat <= 90
+        && data.hostLng is number && data.hostLng >= -180 && data.hostLng <= 180
+        && data.hostHeading is number && data.hostHeading >= 0 && data.hostHeading <= 360
+        && data.hostDistanceMeters is number && data.hostDistanceMeters >= 0 && data.hostDistanceMeters <= 200000
+        && data.hostPaceMinKm is number && data.hostPaceMinKm >= 1.5 && data.hostPaceMinKm <= 30
+        && data.hostCurrentLap is number && data.hostCurrentLap >= 1 && data.hostCurrentLap <= 500
+        && data.hostElapsedSeconds is number && data.hostElapsedSeconds >= 0 && data.hostElapsedSeconds <= 86400
+        && data.guestId is string && data.guestId.size() <= 128 && (data.guestId == '' || isValidId(data.guestId))
+        && data.guestName is string && data.guestName.size() <= 80
+        && data.guestAvatar is string && data.guestAvatar.size() <= 16
+        && data.guestLat is number && data.guestLat >= -90 && data.guestLat <= 90
+        && data.guestLng is number && data.guestLng >= -180 && data.guestLng <= 180
+        && data.guestHeading is number && data.guestHeading >= 0 && data.guestHeading <= 360
+        && data.guestDistanceMeters is number && data.guestDistanceMeters >= 0 && data.guestDistanceMeters <= 200000
+        && data.guestPaceMinKm is number && data.guestPaceMinKm >= 1.5 && data.guestPaceMinKm <= 30
+        && data.guestCurrentLap is number && data.guestCurrentLap >= 1 && data.guestCurrentLap <= 500
+        && data.guestElapsedSeconds is number && data.guestElapsedSeconds >= 0 && data.guestElapsedSeconds <= 86400
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    // Validation Blueprint: DuelLapRecord
+    function isValidDuelLap(data, duelId) {
+      return data.keys().hasAll([
+          'duelId', 'runnerId', 'runnerRole', 'runnerName', 'lapNumber',
+          'lapDistanceMeters', 'lapTimeSeconds', 'cumulativeSeconds', 'lapPaceMinKm', 'recordedAt'
+        ])
+        && data.keys().hasOnly([
+          'duelId', 'runnerId', 'runnerRole', 'runnerName', 'lapNumber',
+          'lapDistanceMeters', 'lapTimeSeconds', 'cumulativeSeconds', 'lapPaceMinKm', 'recordedAt'
+        ])
+        && data.duelId is string && data.duelId == duelId && isValidId(data.duelId)
+        && data.runnerId is string && data.runnerId == request.auth.uid && isValidId(data.runnerId)
+        && data.runnerRole is string && data.runnerRole in ['host', 'guest']
+        && data.runnerName is string && data.runnerName.size() >= 1 && data.runnerName.size() <= 80
+        && data.lapNumber is number && data.lapNumber >= 1 && data.lapNumber <= 500
+        && data.lapDistanceMeters is number && data.lapDistanceMeters >= 100 && data.lapDistanceMeters <= 5000
+        && data.lapTimeSeconds is number && data.lapTimeSeconds >= 1 && data.lapTimeSeconds <= 36000
+        && data.cumulativeSeconds is number && data.cumulativeSeconds >= 1 && data.cumulativeSeconds <= 86400
+        && data.lapPaceMinKm is number && data.lapPaceMinKm >= 1.5 && data.lapPaceMinKm <= 30
+        && data.recordedAt == request.time;
+    }
+
+    // Users collection (PII-isolated: owner-only read/write)
+    match /users/{userId} {
+      allow get: if isValidId(userId) && isOwner(userId);
+      allow list: if isSignedIn() && existing().userId == request.auth.uid;
+      allow create: if isVerifiedUser() && isValidId(userId) && isOwner(userId) && isValidUserProfile(incoming(), userId);
+      allow update: if isVerifiedUser() && isValidId(userId) && isOwner(userId)
+        && isValidUserProfile(incoming(), userId)
+        && incoming().userId == existing().userId
+        && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'level', 'xp', 'totalDistance', 'updatedAt']);
+    }
+
+    // Runs collection (owner-scoped)
     match /runs/{runId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && isValidId(runId) && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && existing().userId == request.auth.uid;
+      allow create: if isVerifiedUser() && isValidId(runId)
+        && isValidRunSession(incoming())
+        && incoming().createdAt == request.time;
+      allow update: if isVerifiedUser() && isValidId(runId)
+        && isValidRunSession(incoming())
+        && existing().userId == request.auth.uid
+        && incoming().userId == existing().userId
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly(['distance', 'duration', 'pace', 'calories', 'elevationGain']);
+      allow delete: if isVerifiedUser() && isValidId(runId) && existing().userId == request.auth.uid;
+    }
+
+    // Interconnected Community Feed Posts
+    match /communityPosts/{postId} {
+      allow get: if isSignedIn() && isValidId(postId) && existing().visibility == 'community';
+      allow list: if isSignedIn() && existing().visibility == 'community';
+
+      allow create: if isVerifiedUser()
+        && isValidId(postId)
+        && isValidCommunityPost(incoming())
+        && incoming().authorId == request.auth.uid
+        && incoming().kudosCount == 0
+        && incoming().commentsCount == 0
+        && incoming().createdAt == request.time;
+
+      allow update: if isVerifiedUser()
+        && isValidId(postId)
+        && isValidCommunityPost(incoming())
+        && incoming().authorId == existing().authorId
+        && incoming().createdAt == existing().createdAt
+        && incoming().visibility == existing().visibility
+        && (
+          // Action 1: Author edits short vibrant text or overlay presentation
+          (
+            existing().authorId == request.auth.uid
+            && incoming().diff(existing()).affectedKeys().hasOnly(['vibrantText', 'overlayStyle', 'hudAnchor', 'achievementTitle'])
+          )
+          ||
+          // Action 2: Atomic kudo increment paired with creating user's kudo doc
+          (
+            incoming().diff(existing()).affectedKeys().hasOnly(['kudosCount'])
+            && incoming().kudosCount == existing().kudosCount + 1
+            && existsAfter(/databases/$(database)/documents/communityPosts/$(postId)/kudos/$(request.auth.uid))
+          )
+          ||
+          // Action 3: Atomic kudo decrement paired with deleting user's kudo doc
+          (
+            incoming().diff(existing()).affectedKeys().hasOnly(['kudosCount'])
+            && incoming().kudosCount == existing().kudosCount - 1
+            && !existsAfter(/databases/$(database)/documents/communityPosts/$(postId)/kudos/$(request.auth.uid))
+          )
+          ||
+          // Action 4: Increment commentsCount by 1
+          (
+            incoming().diff(existing()).affectedKeys().hasOnly(['commentsCount'])
+            && incoming().commentsCount == existing().commentsCount + 1
+          )
+        );
+
+      allow delete: if isVerifiedUser() && isValidId(postId) && existing().authorId == request.auth.uid;
+
+      // Subcollection: Kudos (1 doc per userId)
+      match /kudos/{kudoUserId} {
+        allow get: if isSignedIn() && isValidId(postId) && isValidId(kudoUserId)
+          && get(/databases/$(database)/documents/communityPosts/$(postId)).data.visibility == 'community';
+        allow list: if isSignedIn() && existing().postId == postId;
+
+        allow create: if isVerifiedUser()
+          && isValidId(postId)
+          && isValidId(kudoUserId)
+          && isValidCommunityKudo(incoming(), postId, kudoUserId)
+          && exists(/databases/$(database)/documents/communityPosts/$(postId));
+
+        allow delete: if isVerifiedUser()
+          && isValidId(postId)
+          && isValidId(kudoUserId)
+          && existing().userId == request.auth.uid;
+      }
+
+      // Subcollection: Comments
+      match /comments/{commentId} {
+        allow get: if isSignedIn() && isValidId(postId) && isValidId(commentId)
+          && get(/databases/$(database)/documents/communityPosts/$(postId)).data.visibility == 'community';
+        allow list: if isSignedIn() && existing().postId == postId;
+
+        allow create: if isVerifiedUser()
+          && isValidId(postId)
+          && isValidId(commentId)
+          && isValidCommunityComment(incoming(), postId)
+          && exists(/databases/$(database)/documents/communityPosts/$(postId));
+
+        allow delete: if isVerifiedUser()
+          && isValidId(postId)
+          && isValidId(commentId)
+          && existing().authorId == request.auth.uid;
+      }
+    }
+
+    // Community Running Teams & Team Ranking
+    match /teams/{teamId} {
+      allow get: if isSignedIn() && isValidId(teamId) && existing().visibility == 'community';
+      allow list: if isSignedIn() && existing().visibility == 'community';
+
+      allow create: if isVerifiedUser()
+        && isValidId(teamId)
+        && isValidRunningTeam(incoming())
+        && incoming().creatorId == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isVerifiedUser()
+        && isValidId(teamId)
+        && isValidRunningTeam(incoming())
+        && existing().creatorId == request.auth.uid
+        && incoming().creatorId == existing().creatorId
+        && incoming().createdAt == existing().createdAt
+        && incoming().visibility == existing().visibility
+        && incoming().updatedAt == request.time
+        && (
+          // Action 1: Creator updates team identity details
+          incoming().diff(existing()).affectedKeys().hasOnly(['name', 'tag', 'city', 'motto', 'emblem', 'accentColor', 'updatedAt'])
+          ||
+          // Action 2: Creator recalculates team roster & aggregate ranking totals when adding/removing members
+          incoming().diff(existing()).affectedKeys().hasOnly(['memberCount', 'totalPoints', 'totalKm', 'monthlyPoints', 'monthlyKm', 'avgPaceMinKm', 'updatedAt'])
+        );
+
+      allow delete: if isVerifiedUser() && isValidId(teamId) && existing().creatorId == request.auth.uid;
+
+      // Subcollection: Team Members (Creator-only roster management)
+      match /members/{memberId} {
+        allow get: if isSignedIn() && isValidId(teamId) && isValidId(memberId)
+          && get(/databases/$(database)/documents/teams/$(teamId)).data.visibility == 'community';
+        allow list: if isSignedIn() && existing().teamId == teamId;
+
+        allow create: if isVerifiedUser()
+          && isValidId(teamId)
+          && isValidId(memberId)
+          && isValidTeamMember(incoming(), teamId, memberId)
+          && existsAfter(/databases/$(database)/documents/teams/$(teamId))
+          && getAfter(/databases/$(database)/documents/teams/$(teamId)).data.creatorId == request.auth.uid;
+
+        allow delete: if isVerifiedUser()
+          && isValidId(teamId)
+          && isValidId(memberId)
+          && exists(/databases/$(database)/documents/teams/$(teamId))
+          && get(/databases/$(database)/documents/teams/$(teamId)).data.creatorId == request.auth.uid
+          && (existing().role != 'capitao' || !existsAfter(/databases/$(database)/documents/teams/$(teamId)));
+      }
+    }
+
+    // Real-time 1v1 Duel Rooms & Lap Splits
+    match /duels/{duelId} {
+      allow get: if isSignedIn() && isValidId(duelId) && existing().visibility == 'duel';
+      allow list: if isSignedIn() && existing().visibility == 'duel';
+
+      allow create: if isVerifiedUser()
+        && isValidId(duelId)
+        && isValidDuelSession(incoming())
+        && incoming().hostId == request.auth.uid
+        && incoming().guestId == ''
+        && incoming().status == 'waiting'
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isVerifiedUser()
+        && isValidId(duelId)
+        && isValidDuelSession(incoming())
+        && existing().status != 'finished'
+        && incoming().hostId == existing().hostId
+        && incoming().roomCode == existing().roomCode
+        && incoming().missionId == existing().missionId
+        && incoming().createdAt == existing().createdAt
+        && incoming().visibility == existing().visibility
+        && incoming().updatedAt == request.time
+        && (
+          // Action 1: Guest joins a waiting duel room
+          (
+            existing().status == 'waiting'
+            && existing().guestId == ''
+            && existing().hostId != request.auth.uid
+            && incoming().guestId == request.auth.uid
+            && incoming().status == 'active'
+            && incoming().diff(existing()).affectedKeys().hasOnly(['guestId', 'guestName', 'guestAvatar', 'guestLat', 'guestLng', 'guestHeading', 'status', 'updatedAt'])
+          )
+          ||
+          // Action 2: Host updates live GPS telemetry, lap counter, or finishes duel
+          (
+            existing().hostId == request.auth.uid
+            && incoming().guestId == existing().guestId
+            && incoming().diff(existing()).affectedKeys().hasOnly(['hostLat', 'hostLng', 'hostHeading', 'hostDistanceMeters', 'hostPaceMinKm', 'hostCurrentLap', 'hostElapsedSeconds', 'status', 'updatedAt'])
+          )
+          ||
+          // Action 3: Guest updates live GPS telemetry, lap counter, or finishes duel
+          (
+            existing().guestId == request.auth.uid
+            && incoming().guestId == existing().guestId
+            && incoming().diff(existing()).affectedKeys().hasOnly(['guestLat', 'guestLng', 'guestHeading', 'guestDistanceMeters', 'guestPaceMinKm', 'guestCurrentLap', 'guestElapsedSeconds', 'status', 'updatedAt'])
+          )
+        );
+
+      allow delete: if isVerifiedUser() && isValidId(duelId) && existing().hostId == request.auth.uid;
+
+      // Subcollection: Lap Splits for Real-Time Comparison
+      match /laps/{lapId} {
+        allow get: if isSignedIn() && isValidId(duelId) && isValidId(lapId)
+          && get(/databases/$(database)/documents/duels/$(duelId)).data.visibility == 'duel';
+        allow list: if isSignedIn() && existing().duelId == duelId;
+
+        allow create: if isVerifiedUser()
+          && isValidId(duelId)
+          && isValidId(lapId)
+          && isValidDuelLap(incoming(), duelId)
+          && exists(/databases/$(database)/documents/duels/$(duelId))
+          && (
+            (incoming().runnerRole == 'host' && get(/databases/$(database)/documents/duels/$(duelId)).data.hostId == request.auth.uid)
+            || (incoming().runnerRole == 'guest' && get(/databases/$(database)/documents/duels/$(duelId)).data.guestId == request.auth.uid)
+          );
+
+        allow delete: if isVerifiedUser()
+          && isValidId(duelId)
+          && isValidId(lapId)
+          && existing().runnerId == request.auth.uid;
+      }
     }
   }
 }

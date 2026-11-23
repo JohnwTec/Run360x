@@ -235,61 +235,71 @@ export const LevelSelector: React.FC<LevelSelectorProps> = ({
         </div>
       )}
 
-      {/* Header Mission Control */}
+      {/* Motivational Athlete Mission Control Hero */}
       <div
-        className={`p-6 rounded-3xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 transition-colors ${
+        className={`p-6 rounded-3xl border space-y-5 transition-colors ${
           isLight
-            ? 'bg-white border border-slate-200 shadow-lg'
-            : 'bg-slate-900 border border-cyan-500/30 shadow-[0_0_30px_rgba(6,182,212,0.1)]'
+            ? 'bg-white border-slate-200 shadow-sm'
+            : 'bg-slate-900 border-slate-800'
         }`}
       >
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span
-              className={`px-2.5 py-0.5 font-mono text-[10px] rounded-md uppercase font-bold ${
-                isLight
-                  ? 'bg-orange-100 text-orange-700 border border-orange-200'
-                  : 'bg-cyan-950 border border-cyan-500/40 text-cyan-400'
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
+          <div className="space-y-1.5 max-w-2xl">
+            <p
+              className={`font-mono text-[11px] uppercase font-bold tracking-wider ${
+                isLight ? 'text-orange-600' : 'text-cyan-400'
               }`}
             >
-              CENTRAL DE MISSÕES DIÁRIAS
-            </span>
+              Central de Performance · Pista 400m · Pista 200m · Esteira · Estrada · Trail
+            </p>
+            <h1 className={`text-2xl sm:text-3xl font-black tracking-tight uppercase ${isLight ? 'text-slate-900' : 'text-white'}`}>
+              Supere sua Melhor Marca Hoje
+            </h1>
+            <p className={`text-sm leading-relaxed ${isLight ? 'text-slate-600' : 'text-slate-300'}`}>
+              Escolha seu programa diário, sincronize o GPS e decida o cenário 3D da sua corrida — do estádio olímpico de 400m às trilhas de montanha.
+            </p>
           </div>
-          <h1 className={`text-2xl font-black tracking-wide uppercase ${isLight ? 'text-slate-900' : 'text-white'}`}>
-            Programas de Treino Diário
-          </h1>
-          <p className={`text-xs ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
-            Escolha seu nível e selecione o tipo de treino: Longão, Distância x Velocidade ou Intervalado.
-          </p>
-        </div>
 
-        {/* User Quick Stats pill */}
-        <div
-          className={`flex items-center gap-3 p-3 rounded-2xl border ${
-            isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-950/80 border-slate-800'
-          }`}
-        >
-          <div className="text-center px-2">
-            <span className={`text-[10px] font-mono uppercase block ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
-              Nível Agente
-            </span>
-            <span className={`text-base font-bold font-mono ${isLight ? 'text-orange-600' : 'text-cyan-400'}`}>
-              LVL {userLevel}
-            </span>
-          </div>
-          <div className={`h-8 w-px ${isLight ? 'bg-slate-200' : 'bg-slate-800'}`} />
-          <div className="text-center px-2">
-            <span className={`text-[10px] font-mono uppercase block ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
-              XP Acumulado
-            </span>
-            <span className="text-base font-bold font-mono text-amber-500">{userXp} XP</span>
-          </div>
-          <div className={`h-8 w-px ${isLight ? 'bg-slate-200' : 'bg-slate-800'}`} />
-          <div className="text-center px-2">
-            <span className={`text-[10px] font-mono uppercase block ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
-              Setores
-            </span>
-            <span className="text-base font-bold font-mono text-emerald-500">{conqueredSectorsCount} Conquistados</span>
+          {/* Athlete Progression Summary (Tabular Numerals) */}
+          <div
+            className={`w-full md:w-auto min-w-[260px] p-4 rounded-2xl border space-y-2.5 ${
+              isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-950 border-slate-800'
+            }`}
+          >
+            <div className="flex items-center justify-between gap-4 font-mono tabular-nums">
+              <div>
+                <span className={`text-[10px] uppercase block ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
+                  Nível Atual
+                </span>
+                <span className={`text-lg font-black ${isLight ? 'text-orange-600' : 'text-cyan-400'}`}>
+                  LVL {userLevel}
+                </span>
+              </div>
+              <div className="text-right">
+                <span className={`text-[10px] uppercase block ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
+                  XP · Setores
+                </span>
+                <span className="text-sm font-black text-amber-500">
+                  {userXp} XP <span className="text-slate-500">·</span>{' '}
+                  <span className="text-emerald-500">{conqueredSectorsCount}</span>
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <div className={`w-full h-2 rounded-full overflow-hidden ${isLight ? 'bg-slate-200' : 'bg-slate-800'}`}>
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    isLight ? 'bg-orange-500' : 'bg-gradient-to-r from-cyan-400 to-teal-400'
+                  }`}
+                  style={{ width: `${Math.max(10, Math.min(100, Math.round(((userXp % 1000) / 1000) * 100)))}%` }}
+                />
+              </div>
+              <div className="flex items-center justify-between text-[10px] font-mono text-slate-500 dark:text-slate-400 tabular-nums">
+                <span>Progresso para LVL {userLevel + 1}</span>
+                <span>{1000 - (userXp % 1000)} XP restantes</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>

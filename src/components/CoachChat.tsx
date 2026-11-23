@@ -21,16 +21,17 @@ import {
   Apple,
   ExternalLink,
   ChevronRight,
-  Info
+  Info,
+  MapPin
 } from 'lucide-react';
-import { UserProfile, TrainingLevel, WorkoutOption } from '../types';
+import { UserProfile, TrainingLevel, WorkoutOption, LatLng } from '../types';
 
 interface Message {
   id: string;
   sender: 'user' | 'bot';
   text: string;
   timestamp: string;
-  sources?: Array<{ title: string; uri: string }>;
+  sources?: Array<{ title: string; uri: string; type?: 'web' | 'maps' }>;
   modelUsed?: string;
 }
 
@@ -38,6 +39,7 @@ interface CoachChatProps {
   userProfile?: UserProfile;
   selectedLevel?: TrainingLevel;
   selectedWorkoutOption?: WorkoutOption;
+  userPosition?: LatLng;
   theme?: 'dark' | 'light';
 }
 
@@ -75,6 +77,15 @@ const QUICK_TOPICS = [
     prompt: 'Quais técnicas de cadência, mecânica de passada e respiração ajudam a diminuir o pace sustentado?',
   },
   {
+    id: 'locais_maps',
+    category: 'Google Maps',
+    icon: MapPin,
+    color: 'text-sky-500 bg-sky-500/10 border-sky-500/20',
+    title: 'Pistas 400m & Parques Perto de Mim',
+    prompt: 'Quais são as melhores pistas de atletismo (400m ou 200m), parques e trilhas para correr perto da minha localização atual?',
+    useMaps: true,
+  },
+  {
     id: 'recuperacao',
     category: 'Recuperação',
     icon: Heart,
@@ -84,22 +95,22 @@ const QUICK_TOPICS = [
   },
 ];
 
-export function CoachChat({ userProfile, selectedLevel, selectedWorkoutOption, theme = 'dark' }: CoachChatProps) {
+export function CoachChat({ userProfile, selectedLevel, selectedWorkoutOption, userPosition, theme = 'dark' }: CoachChatProps) {
   const isLight = theme === 'light';
 
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'welcome',
       sender: 'bot',
-      text: 'Saudações, Atleta! Sou o seu **Coach Tático & Consultor de Saúde RunLevel**.\n\nEstou aqui para tirar suas dúvidas sobre **metodologia de treino**, **melhoria de pace**, **nutrição esportiva**, **fisiologia** e **prevenção de lesões**.\n\nComo posso ajudar na sua evolução hoje?',
+      text: 'Saudações, Atleta! Sou o seu **Coach Tático & Consultor de Saúde Run360X (Gemini 4)**.\n\nPosso ajudar em **treinos de pista (400m/200m), esteira, estrada e trail**, **nutrição**, **prevenção de lesões** e localizar **pistas e parques reais perto de você** via Google Maps.\n\nComo posso ajudar na sua evolução hoje?',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     },
   ]);
 
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [mode, setMode] = useState<'default' | 'fast' | 'pro'>('default');
-  const [enableSearch, setEnableSearch] = useState(true);
+  const [mode, setMode] = useState<'default' | 'maps' | 'fast' | 'pro'>('default');
+  const [enableSearch] = useState(true);
   const [includeContext, setIncludeContext] = useState(true);
 
   // Voice States
@@ -115,9 +126,14 @@ export function CoachChat({ userProfile, selectedLevel, selectedWorkoutOption, t
   }, [messages, isLoading]);
 
   // Handle Form Submit
-  const handleSendMessage = async (textToSend?: string) => {
+  const handleSendMessage = async (textToSend?: string, overrideMode?: 'default' | 'maps' | 'fast' | 'pro') => {
     const query = textToSend || inputMessage;
     if (!query.trim() || isLoading) return;
+
+    const effectiveMode = overrideMode || mode;
+    if (overrideMode && overrideMode !== mode) {
+      setMode(overrideMode);
+    }
 
     const userMsgId = `user-${Date.now()}`;
     const userMsg: Message = {
@@ -149,8 +165,10 @@ export function CoachChat({ userProfile, selectedLevel, selectedWorkoutOption, t
           message: query.trim(),
           history: messages.slice(-6).map((m) => ({ sender: m.sender, text: m.text })),
           userContext,
-          mode,
-          enableSearch,
+          mode: effectiveMode,
+          enableSearch: effectiveMode === 'default' && enableSearch,
+          enableMaps: effectiveMode === 'maps',
+          userLocation: userPosition,
         }),
       });
 
@@ -233,7 +251,6 @@ export function CoachChat({ userProfile, selectedLevel, selectedWorkoutOption, t
   const toggleSpeechRecognition = () => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      alert('Seu navegador não suporta reconhecimento de voz direto.');
       return;
     }
 
@@ -326,22 +343,22 @@ export function CoachChat({ userProfile, selectedLevel, selectedWorkoutOption, t
               <span className={`text-[10px] px-2 py-0.5 rounded font-mono font-bold ${
                 isLight ? 'bg-emerald-100 text-emerald-800' : 'bg-emerald-950 border border-emerald-500/40 text-emerald-300'
               }`}>
-                ● ONLINE (GEMINI 3)
+                GEMINI 4 · ONLINE
               </span>
             </div>
             <p className={`text-xs font-mono mt-0.5 ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
-              Consultas rápidas sobre ritmos, nutrição, regeneração muscular e prevenção de lesões
+              Treinos em pista/esteira/trail, busca científica e locais reais via Google Maps
             </p>
           </div>
         </div>
 
-        {/* Model Selector Pills */}
-        <div className={`flex items-center gap-1.5 p-1 rounded-2xl border text-xs font-mono font-bold ${
+        {/* Model & Grounding Mode Selector */}
+        <div className={`flex flex-wrap items-center gap-1 p-1 rounded-2xl border text-xs font-mono font-bold ${
           isLight ? 'bg-slate-100 border-slate-200' : 'bg-slate-950 border-slate-800'
         }`}>
           <button
             onClick={() => setMode('fast')}
-            className={`px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1 ${
+            className={`px-2.5 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1 ${
               mode === 'fast'
                 ? isLight ? 'bg-orange-500 text-white shadow-sm' : 'bg-cyan-500 text-slate-950 font-bold'
                 : isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-white'
@@ -354,28 +371,41 @@ export function CoachChat({ userProfile, selectedLevel, selectedWorkoutOption, t
 
           <button
             onClick={() => setMode('default')}
-            className={`px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1 ${
+            className={`px-2.5 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1 ${
               mode === 'default'
                 ? isLight ? 'bg-orange-500 text-white shadow-sm' : 'bg-cyan-500 text-slate-950 font-bold'
                 : isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-white'
             }`}
-            title="Equilibrado com Busca no Google para dados científicos atualizados"
+            title="Gemini 4 com Google Search para dados científicos atualizados"
           >
             <Globe className="w-3.5 h-3.5" />
             <span>Busca Web</span>
           </button>
 
           <button
+            onClick={() => setMode('maps')}
+            className={`px-2.5 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1 ${
+              mode === 'maps'
+                ? isLight ? 'bg-orange-500 text-white shadow-sm' : 'bg-emerald-500 text-slate-950 font-bold'
+                : isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-white'
+            }`}
+            title="Gemini 4 com Google Maps para encontrar pistas, parques e trilhas reais"
+          >
+            <MapPin className="w-3.5 h-3.5" />
+            <span>Locais Maps</span>
+          </button>
+
+          <button
             onClick={() => setMode('pro')}
-            className={`px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1 ${
+            className={`px-2.5 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1 ${
               mode === 'pro'
                 ? isLight ? 'bg-orange-500 text-white shadow-sm' : 'bg-cyan-500 text-slate-950 font-bold'
                 : isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-white'
             }`}
-            title="Pensamento Profundo (Pro Thinking) para análises avançadas"
+            title="Análise Profunda Gemini 4 (High Thinking)"
           >
             <Brain className="w-3.5 h-3.5" />
-            <span>Pro Thinking</span>
+            <span>Profundo</span>
           </button>
         </div>
       </div>
@@ -385,7 +415,7 @@ export function CoachChat({ userProfile, selectedLevel, selectedWorkoutOption, t
         <span className={`text-[10px] font-mono uppercase font-bold tracking-wider block px-1 ${
           isLight ? 'text-slate-500' : 'text-slate-400'
         }`}>
-          💡 Perguntas Frequentes & Consultas Rápidas:
+          Consultas Rápidas & Locais de Treino:
         </span>
         <div className="flex flex-wrap items-center gap-2">
           {QUICK_TOPICS.map((topic) => {
@@ -393,7 +423,7 @@ export function CoachChat({ userProfile, selectedLevel, selectedWorkoutOption, t
             return (
               <button
                 key={topic.id}
-                onClick={() => handleSendMessage(topic.prompt)}
+                onClick={() => handleSendMessage(topic.prompt, (topic as any).useMaps ? 'maps' : undefined)}
                 disabled={isLoading}
                 className={`px-3 py-2 rounded-2xl border text-xs font-mono transition cursor-pointer flex items-center gap-2 ${
                   isLight
@@ -454,11 +484,19 @@ export function CoachChat({ userProfile, selectedLevel, selectedWorkoutOption, t
                     {renderFormattedText(msg.text)}
                   </div>
 
-                  {/* Web Sources if grounding present */}
+                  {/* Web Search & Google Maps Grounding Sources */}
                   {msg.sources && msg.sources.length > 0 && (
-                    <div className="mt-3 pt-2 border-t border-slate-200 dark:border-slate-800 text-[10px] font-mono space-y-1">
+                    <div className="mt-3 pt-2 border-t border-slate-200 dark:border-slate-800 text-[10px] font-mono space-y-1.5">
                       <span className="font-bold text-cyan-600 dark:text-cyan-400 flex items-center gap-1">
-                        <Globe className="w-3 h-3" /> Fontes & Pesquisa Científica:
+                        {msg.sources.some((s) => s.type === 'maps') ? (
+                          <>
+                            <MapPin className="w-3 h-3 text-emerald-500" /> Locais no Google Maps & Fontes:
+                          </>
+                        ) : (
+                          <>
+                            <Globe className="w-3 h-3" /> Fontes & Pesquisa Científica:
+                          </>
+                        )}
                       </span>
                       <div className="flex flex-wrap gap-1.5 pt-0.5">
                         {msg.sources.map((src, sIdx) => (
@@ -467,14 +505,19 @@ export function CoachChat({ userProfile, selectedLevel, selectedWorkoutOption, t
                             href={src.uri}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className={`px-2 py-0.5 rounded-lg border flex items-center gap-1 transition ${
-                              isLight
-                                ? 'bg-white border-slate-200 hover:bg-slate-100 text-slate-700'
-                                : 'bg-slate-900 border-slate-800 hover:border-cyan-500/40 text-slate-300'
+                            className={`px-2 py-1 rounded-lg border flex items-center gap-1.5 transition ${
+                              src.type === 'maps'
+                                ? isLight
+                                  ? 'bg-emerald-50 border-emerald-200 hover:bg-emerald-100 text-emerald-800'
+                                  : 'bg-emerald-950/60 border-emerald-500/40 hover:border-emerald-400 text-emerald-200'
+                                : isLight
+                                  ? 'bg-white border-slate-200 hover:bg-slate-100 text-slate-700'
+                                  : 'bg-slate-900 border-slate-800 hover:border-cyan-500/40 text-slate-300'
                             }`}
                           >
-                            <span className="truncate max-w-[180px]">{src.title || 'Referência Web'}</span>
-                            <ExternalLink className="w-2.5 h-2.5 opacity-60" />
+                            {src.type === 'maps' && <MapPin className="w-3 h-3 shrink-0 text-emerald-500" />}
+                            <span className="truncate max-w-[200px]">{src.title || 'Abrir Referência'}</span>
+                            <ExternalLink className="w-2.5 h-2.5 opacity-60 shrink-0" />
                           </a>
                         ))}
                       </div>

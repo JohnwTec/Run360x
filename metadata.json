@@ -1,6 +1,6 @@
 {
   "name": "Run360X",
   "description": "Mapa Tático de Realidade Aumentada para corrida gamificada com visual Dark Neon, Corredor Fantasma e missões urbanas.",
-  "requestFramePermissions": ["geolocation"],
+  "requestFramePermissions": ["geolocation", "camera"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

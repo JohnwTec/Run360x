@@ -1,22 +1,34 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Trophy, Share2, Download, Zap, Flame, Shield, ArrowLeft, CheckCircle, Calendar, Clock, MapPin, Activity, X, Sparkles, Instagram } from 'lucide-react';
+import { Trophy, Share2, Download, Zap, Flame, Shield, ArrowLeft, CheckCircle, Calendar, Clock, MapPin, Activity, X, Sparkles, Instagram, Camera } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { WorkoutStats, TrainingLevel } from '../types';
+import { WorkoutStats, TrainingLevel, LevelUpEvent } from '../types';
 import { formatPace, formatTime } from '../utils/geo';
 import { tacticalAudio } from '../utils/audio';
 import { ConqueredSegmentsView } from './ConqueredSegmentsView';
 import { HistoricalComparisonCard } from './HistoricalComparisonCard';
 import { LevelUpCelebrationModal } from './LevelUpCelebrationModal';
 import { InstagramShareModal } from './InstagramShareModal';
+import { SocialShareModal, SocialSharePayload } from './SocialShareModal';
 
 interface DebriefingViewProps {
   stats: WorkoutStats;
   level: TrainingLevel;
+  levelUpEvent?: LevelUpEvent | null;
+  athleteName?: string;
   onClose: () => void;
+  onShareToCommunityCamera?: (stats: WorkoutStats) => void;
   theme?: 'dark' | 'light';
 }
 
-export const DebriefingView: React.FC<DebriefingViewProps> = ({ stats, level, onClose, theme = 'dark' }) => {
+export const DebriefingView: React.FC<DebriefingViewProps> = ({
+  stats,
+  level,
+  levelUpEvent,
+  athleteName,
+  onClose,
+  onShareToCommunityCamera,
+  theme = 'dark',
+}) => {
   const cardCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const isLight = theme === 'light';
   const [borgPse, setBorgPse] = useState<number>(6);
@@ -24,8 +36,31 @@ export const DebriefingView: React.FC<DebriefingViewProps> = ({ stats, level, on
   const [showCardModal, setShowCardModal] = useState<boolean>(false);
   const [showLevelUpModal, setShowLevelUpModal] = useState<boolean>(false);
   const [showInstagramModal, setShowInstagramModal] = useState<boolean>(false);
+  const [showSocialShareModal, setShowSocialShareModal] = useState<boolean>(false);
 
-  // Trigger victory fanfare sound and auto-trigger Level Up celebration if XP gained threshold reached
+  const workoutSharePayload: SocialSharePayload = {
+    kind: 'workout',
+    badge: `MISSÃO CONCLUÍDA • NÍVEL ${level.levelNumber}`,
+    title: level.codename,
+    subtitle: `Setor Dominado: ${stats.sectorConquered || 'Circuito Urbano'} • ${stats.date}`,
+    metrics: [
+      { label: 'Distância', value: `${(stats.totalDistanceMeters / 1000).toFixed(2)} km` },
+      { label: 'Pace Médio', value: `${formatPace(stats.avgPaceMinKm)}` },
+      { label: 'Tempo Total', value: formatTime(stats.durationSeconds) },
+      { label: 'XP Conquistado', value: `+${stats.xpGained} XP` },
+    ],
+    defaultCaption:
+      `🏃‍♂️ Missão concluída no RUN360X! ⚡\n` +
+      `🎯 ${level.codename} (${stats.sectorConquered || 'Setor Urbano'})\n` +
+      `📏 Distância: ${(stats.totalDistanceMeters / 1000).toFixed(2)} km\n` +
+      `⏱️ Pace Médio: ${formatPace(stats.avgPaceMinKm)} /km • Tempo: ${formatTime(stats.durationSeconds)}\n` +
+      `🏆 +${stats.xpGained} XP conquistados!\n\n` +
+      `#RUN360X #Corrida #Running #Pace #TreinoConcluido`,
+  };
+
+  const didLevelUp = Boolean(levelUpEvent && levelUpEvent.newLevel > levelUpEvent.previousLevel);
+
+  // Trigger victory fanfare and automatically launch triumphant Level Up animation when a new experience level is reached
   useEffect(() => {
     tacticalAudio.playGhostOvertakeSound();
     confetti({
@@ -35,12 +70,11 @@ export const DebriefingView: React.FC<DebriefingViewProps> = ({ stats, level, on
       colors: ['#00f0ff', '#ff0055', '#38bdf8', '#ffaa00'],
     });
 
-    // Automatically trigger Level Up modal if runner gained substantial XP
-    if (stats.xpGained >= 120) {
-      const timer = setTimeout(() => {
+    if (didLevelUp) {
+      const timer = window.setTimeout(() => {
         setShowLevelUpModal(true);
-      }, 700);
-      return () => clearTimeout(timer);
+      }, 550);
+      return () => window.clearTimeout(timer);
     } else {
       tacticalAudio.speakTacticalCoach(
         `Missão concluída com sucesso! Você percorreu ${(stats.totalDistanceMeters / 1000).toFixed(
@@ -48,7 +82,7 @@ export const DebriefingView: React.FC<DebriefingViewProps> = ({ stats, level, on
         )} quilômetros e acumulou ${stats.xpGained} pontos de experiência.`
       );
     }
-  }, [stats]);
+  }, [stats, didLevelUp]);
 
   // Simulated splits for table display
   const totalKm = Math.max(1, Math.floor(stats.totalDistanceMeters / 1000));
@@ -314,12 +348,34 @@ export const DebriefingView: React.FC<DebriefingViewProps> = ({ stats, level, on
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            {didLevelUp && levelUpEvent && (
+              <button
+                type="button"
+                onClick={() => setShowLevelUpModal(true)}
+                className="px-3.5 py-2.5 rounded-xl text-xs font-black font-mono border bg-gradient-to-r from-cyan-400 via-fuchsia-500 to-amber-400 hover:opacity-95 text-slate-950 border-cyan-300 flex items-center gap-2 transition cursor-pointer shadow-[0_0_24px_rgba(6,182,212,0.5)]"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>LEVEL UP · LVL {levelUpEvent.newLevel}!</span>
+              </button>
+            )}
+
+            {onShareToCommunityCamera && (
+              <button
+                type="button"
+                onClick={() => onShareToCommunityCamera(stats)}
+                className="px-4 py-2.5 rounded-xl text-xs font-black font-mono border bg-gradient-to-r from-amber-400 to-orange-500 hover:opacity-95 text-slate-950 border-amber-300 flex items-center gap-2 transition cursor-pointer shadow-[0_0_20px_rgba(251,146,60,0.4)]"
+              >
+                <Camera className="w-4 h-4" />
+                <span>CÂMERA · COMUNIDADE</span>
+              </button>
+            )}
+
             <button
-              onClick={() => setShowLevelUpModal(true)}
-              className="px-3.5 py-2.5 rounded-xl text-xs font-black font-mono border bg-gradient-to-r from-cyan-500 to-purple-600 hover:opacity-95 text-white border-cyan-400 flex items-center gap-2 transition cursor-pointer shadow-[0_0_20px_rgba(6,182,212,0.4)] animate-pulse"
+              onClick={() => setShowSocialShareModal(true)}
+              className="px-4 py-2.5 rounded-xl text-xs font-black font-mono border bg-gradient-to-r from-cyan-500 to-emerald-500 hover:opacity-95 text-slate-950 border-cyan-300 flex items-center gap-2 transition cursor-pointer shadow-[0_0_20px_rgba(6,182,212,0.4)]"
             >
-              <Sparkles className="w-4 h-4 text-cyan-200" />
-              <span>LEVEL UP!</span>
+              <Share2 className="w-4 h-4" />
+              <span>COMPARTILHAR REDES</span>
             </button>
 
             <button
@@ -327,7 +383,7 @@ export const DebriefingView: React.FC<DebriefingViewProps> = ({ stats, level, on
               className="px-4 py-2.5 rounded-xl text-xs font-black font-mono border bg-gradient-to-r from-pink-500 via-rose-500 to-purple-600 hover:opacity-95 text-white border-pink-400 flex items-center gap-2 transition cursor-pointer shadow-[0_0_20px_rgba(236,72,153,0.4)]"
             >
               <Instagram className="w-4 h-4 text-pink-200" />
-              <span>COMPARTILHAR NO INSTAGRAM</span>
+              <span>INSTAGRAM STORIES</span>
             </button>
 
             <button
@@ -762,6 +818,25 @@ export const DebriefingView: React.FC<DebriefingViewProps> = ({ stats, level, on
               <Download className="w-4 h-4" /> BAIXAR CARD DE CONQUISTA (.PNG HD)
             </button>
 
+            {onShareToCommunityCamera && (
+              <button
+                type="button"
+                onClick={() => onShareToCommunityCamera(stats)}
+                className="w-full py-3 rounded-xl text-xs font-black uppercase font-mono flex items-center justify-center gap-2 transition shadow-md cursor-pointer bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 hover:opacity-95"
+              >
+                <Camera className="w-4 h-4" />
+                <span>POSTAR NA COMUNIDADE COM CÂMERA AO VIVO</span>
+              </button>
+            )}
+
+            <button
+              onClick={() => setShowSocialShareModal(true)}
+              className="w-full py-3 rounded-xl text-xs font-black uppercase font-mono flex items-center justify-center gap-2 transition shadow-md cursor-pointer bg-emerald-500 hover:bg-emerald-600 text-slate-950"
+            >
+              <Share2 className="w-4 h-4" />
+              <span>WHATSAPP, X, FACEBOOK, LINKEDIN & TELEGRAM</span>
+            </button>
+
             <button
               onClick={() => setShowInstagramModal(true)}
               className="w-full py-3 rounded-xl text-xs font-black uppercase font-mono flex items-center justify-center gap-2 transition shadow-md cursor-pointer bg-gradient-to-r from-pink-500 via-rose-500 to-purple-600 text-white hover:opacity-95 shadow-[0_0_20px_rgba(236,72,153,0.3)]"
@@ -913,6 +988,9 @@ export const DebriefingView: React.FC<DebriefingViewProps> = ({ stats, level, on
         <LevelUpCelebrationModal
           stats={stats}
           currentLevel={level}
+          levelUpEvent={levelUpEvent || undefined}
+          athleteName={athleteName}
+          onShareToCommunityCamera={onShareToCommunityCamera}
           onClose={() => setShowLevelUpModal(false)}
         />
       )}
@@ -924,6 +1002,16 @@ export const DebriefingView: React.FC<DebriefingViewProps> = ({ stats, level, on
           level={level}
           onClose={() => setShowInstagramModal(false)}
           isLevelUp={true}
+        />
+      )}
+
+      {/* Multi-Network Social Share Modal */}
+      {showSocialShareModal && (
+        <SocialShareModal
+          payload={workoutSharePayload}
+          onClose={() => setShowSocialShareModal(false)}
+          onOpenInstagramStory={() => setShowInstagramModal(true)}
+          theme={theme}
         />
       )}
     </div>

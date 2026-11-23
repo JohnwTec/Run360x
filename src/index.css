@@ -98,3 +98,202 @@
   animation: neonFlicker 3s infinite ease-in-out;
 }
 
+@keyframes zoomNeonTap {
+  0% {
+    transform: scale(0.9);
+    background-color: rgba(0, 240, 255, 0.35);
+    box-shadow: 0 0 10px rgba(0, 240, 255, 0.9), inset 0 0 12px rgba(0, 240, 255, 0.8);
+  }
+  40% {
+    transform: scale(1.03);
+    background-color: rgba(0, 240, 255, 0.25);
+    box-shadow: 0 0 24px rgba(0, 240, 255, 0.95), inset 0 0 16px rgba(0, 240, 255, 0.65);
+  }
+  70% {
+    transform: scale(0.99);
+    background-color: rgba(0, 240, 255, 0.14);
+    box-shadow: 0 0 14px rgba(0, 240, 255, 0.6), inset 0 0 8px rgba(0, 240, 255, 0.35);
+  }
+  100% {
+    transform: scale(1);
+    background-color: transparent;
+    box-shadow: 0 0 0 rgba(0, 240, 255, 0), inset 0 0 0 rgba(0, 240, 255, 0);
+  }
+}
+
+@keyframes zoomNeonTapCombat {
+  0% {
+    transform: scale(0.9);
+    background-color: rgba(244, 63, 94, 0.38);
+    box-shadow: 0 0 10px rgba(244, 63, 94, 0.95), inset 0 0 12px rgba(244, 63, 94, 0.8);
+  }
+  40% {
+    transform: scale(1.03);
+    background-color: rgba(244, 63, 94, 0.26);
+    box-shadow: 0 0 24px rgba(244, 63, 94, 0.95), inset 0 0 16px rgba(244, 63, 94, 0.65);
+  }
+  70% {
+    transform: scale(0.99);
+    background-color: rgba(244, 63, 94, 0.14);
+    box-shadow: 0 0 14px rgba(244, 63, 94, 0.6), inset 0 0 8px rgba(244, 63, 94, 0.35);
+  }
+  100% {
+    transform: scale(1);
+    background-color: transparent;
+    box-shadow: 0 0 0 rgba(244, 63, 94, 0), inset 0 0 0 rgba(244, 63, 94, 0);
+  }
+}
+
+@keyframes zoomNeonRipple {
+  0% {
+    transform: scale(0.35);
+    opacity: 0.95;
+  }
+  100% {
+    transform: scale(1.85);
+    opacity: 0;
+  }
+}
+
+.animate-zoom-neon-pulse {
+  animation: zoomNeonTap 460ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.animate-zoom-neon-pulse-combat {
+  animation: zoomNeonTapCombat 460ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.animate-zoom-neon-ripple {
+  animation: zoomNeonRipple 440ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes levelUpCrestPop {
+  0% {
+    transform: scale(0.45) rotate(-8deg);
+    opacity: 0;
+    filter: brightness(2.6) drop-shadow(0 0 42px rgba(34, 211, 238, 0.95));
+  }
+  55% {
+    transform: scale(1.12) rotate(2deg);
+    opacity: 1;
+    filter: brightness(1.55) drop-shadow(0 0 36px rgba(244, 63, 94, 0.85));
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+    filter: brightness(1) drop-shadow(0 0 22px rgba(34, 211, 238, 0.7));
+  }
+}
+
+@keyframes levelUpRingWave {
+  0% {
+    transform: scale(0.5);
+    opacity: 0.95;
+  }
+  100% {
+    transform: scale(2.45);
+    opacity: 0;
+  }
+}
+
+@keyframes levelUpSpinSlow {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-levelup-crest {
+  animation: levelUpCrestPop 0.85s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-levelup-ring {
+  animation: levelUpRingWave 1.6s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+.animate-levelup-spin {
+  animation: levelUpSpinSlow 14s linear infinite;
+}
+
+/* WorkoutHUD Hyper-Speed (> 16 km/h) Motion Blur & Speed Streaks */
+@keyframes hudSpeedStreakSweep {
+  0% {
+    transform: translate3d(-32%, 0, 0) skewX(-18deg);
+    opacity: 0;
+  }
+  25% {
+    opacity: 0.72;
+  }
+  75% {
+    opacity: 0.55;
+  }
+  100% {
+    transform: translate3d(132%, 0, 0) skewX(-18deg);
+    opacity: 0;
+  }
+}
+
+@keyframes hudVelocityPulseBorder {
+  0%, 100% {
+    box-shadow: 0 0 24px rgba(6, 182, 212, 0.25), inset 0 0 18px rgba(6, 182, 212, 0.08);
+  }
+  50% {
+    box-shadow: 0 0 42px rgba(245, 158, 11, 0.34), inset 0 0 24px rgba(6, 182, 212, 0.16);
+  }
+}
+
+.hud-motion-blur-streaks::before,
+.hud-motion-blur-streaks::after {
+  content: '';
+  position: absolute;
+  left: -30%;
+  width: 65%;
+  pointer-events: none;
+  filter: blur(2.5px);
+  will-change: transform, opacity;
+}
+
+.hud-motion-blur-streaks::before {
+  top: 14%;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(34, 211, 238, 0.75) 55%,
+    rgba(251, 191, 36, 0.9) 85%,
+    transparent 100%
+  );
+  animation: hudSpeedStreakSweep 0.62s linear infinite;
+}
+
+.hud-motion-blur-streaks::after {
+  bottom: 24%;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(249, 115, 22, 0.65) 50%,
+    rgba(56, 189, 248, 0.85) 85%,
+    transparent 100%
+  );
+  animation: hudSpeedStreakSweep 0.48s linear infinite 0.22s;
+}
+
+.hud-hyperspeed-card {
+  animation: hudVelocityPulseBorder 1.4s ease-in-out infinite;
+}
+
+.hud-speed-blur-text {
+  text-shadow: -3px 0 8px rgba(34, 211, 238, 0.55), 3px 0 8px rgba(249, 115, 22, 0.45);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hud-motion-blur-streaks::before,
+  .hud-motion-blur-streaks::after,
+  .hud-hyperspeed-card {
+    animation: none;
+  }
+}
+

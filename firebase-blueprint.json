@@ -5,29 +5,285 @@
       "description": "Rastreamento tático de sessão de corrida registrada pelo usuário.",
       "type": "object",
       "properties": {
-        "userId": { "type": "string", "description": "ID do corredor autor da sessão" },
+        "userId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$", "description": "ID do corredor autor da sessão" },
         "distance": { "type": "number", "description": "Distância total percorrida em km" },
         "duration": { "type": "number", "description": "Duração em segundos" },
-        "pace": { "type": "string", "description": "Pace médio formatado mm:ss" },
+        "pace": { "type": "string", "maxLength": 16, "description": "Pace médio formatado mm:ss" },
         "calories": { "type": "number", "description": "Calorias queimadas" },
         "elevationGain": { "type": "number", "description": "Elevação acumulada em metros" },
         "createdAt": { "type": "string", "format": "date-time", "description": "Data/hora da atividade" }
       },
-      "required": ["userId", "distance", "duration", "pace"]
+      "required": ["userId", "distance", "duration", "pace", "createdAt"]
     },
     "UserProfile": {
       "title": "UserProfile",
       "description": "Perfil tático do atleta e progresso gamificado.",
       "type": "object",
       "properties": {
-        "userId": { "type": "string", "description": "ID do usuário no Firebase Auth" },
-        "displayName": { "type": "string", "description": "Codinome do corredor" },
+        "userId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$", "description": "ID do usuário no Firebase Auth" },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 80, "description": "Codinome do corredor" },
         "level": { "type": "number", "description": "Nível de patente tática" },
         "xp": { "type": "number", "description": "Pontos de experiência acumulados" },
         "totalDistance": { "type": "number", "description": "Distância total corrida no app em km" },
         "updatedAt": { "type": "string", "format": "date-time", "description": "Data da última atualização de status" }
       },
-      "required": ["userId", "displayName", "level", "xp"]
+      "required": ["userId", "displayName", "level", "xp", "updatedAt"]
+    },
+    "CommunityPost": {
+      "title": "CommunityPost",
+      "description": "Publicação interna da comunidade com foto da câmera, overlay flutuante de métricas, mini mapa de percurso e texto vibrante.",
+      "type": "object",
+      "properties": {
+        "authorId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$", "description": "UID do autor" },
+        "authorName": { "type": "string", "minLength": 1, "maxLength": 80, "description": "Nome do atleta" },
+        "authorAvatar": { "type": "string", "maxLength": 300, "description": "Avatar ou emoji do atleta" },
+        "authorLevel": { "type": "number", "description": "Nível do atleta" },
+        "ageCategoryLabel": { "type": "string", "maxLength": 40, "description": "Faixa etária" },
+        "genderLabel": { "type": "string", "maxLength": 24, "description": "Categoria de gênero" },
+        "achievementTitle": { "type": "string", "minLength": 1, "maxLength": 90, "description": "Título da conquista ou treino" },
+        "vibrantText": { "type": "string", "maxLength": 120, "description": "Texto curto e vibrante sobre a foto" },
+        "overlayStyle": { "type": "string", "enum": ["neon", "solar", "emerald", "crystal"], "description": "Estilo visual do overlay flutuante" },
+        "hudAnchor": { "type": "string", "enum": ["top", "center", "bottom"], "description": "Posição vertical do bloco flutuante" },
+        "distanceKm": { "type": "number", "description": "Quilometragem obtida em km" },
+        "avgPaceMinKm": { "type": "number", "description": "Pace médio em min/km" },
+        "fastestKmPaceMinKm": { "type": "number", "description": "Pace do km mais rápido em min/km" },
+        "avgSpeedKmh": { "type": "number", "description": "Velocidade média em km/h" },
+        "durationSeconds": { "type": "number", "description": "Duração total em segundos" },
+        "xpGained": { "type": "number", "description": "XP conquistado na sessão" },
+        "routeLine": { "type": "array", "description": "Pontos normalizados (x,y) da linha do mini mapa de percurso (máx 48 pontos)" },
+        "photoDataUrl": { "type": "string", "maxLength": 260000, "description": "Imagem comprimida capturada pela câmera ou cenário de corrida" },
+        "visibility": { "type": "string", "enum": ["community"], "description": "Escopo de visibilidade na comunidade interna" },
+        "kudosCount": { "type": "number", "description": "Total de aplausos/kudos" },
+        "commentsCount": { "type": "number", "description": "Total de comentários" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp do servidor na criação" }
+      },
+      "required": [
+        "authorId",
+        "authorName",
+        "authorAvatar",
+        "authorLevel",
+        "ageCategoryLabel",
+        "genderLabel",
+        "achievementTitle",
+        "vibrantText",
+        "overlayStyle",
+        "hudAnchor",
+        "distanceKm",
+        "avgPaceMinKm",
+        "fastestKmPaceMinKm",
+        "avgSpeedKmh",
+        "durationSeconds",
+        "xpGained",
+        "routeLine",
+        "photoDataUrl",
+        "visibility",
+        "kudosCount",
+        "commentsCount",
+        "createdAt"
+      ]
+    },
+    "CommunityKudo": {
+      "title": "CommunityKudo",
+      "description": "Registro individual de aplauso (kudo) em um post da comunidade.",
+      "type": "object",
+      "properties": {
+        "postId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userName": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["postId", "userId", "userName", "createdAt"]
+    },
+    "CommunityComment": {
+      "title": "CommunityComment",
+      "description": "Comentário de incentivo em um compartilhamento da comunidade.",
+      "type": "object",
+      "properties": {
+        "postId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "authorId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "authorName": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "text": { "type": "string", "minLength": 1, "maxLength": 240 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["postId", "authorId", "authorName", "text", "createdAt"]
+    },
+    "RunningTeam": {
+      "title": "RunningTeam",
+      "description": "Equipe de corrida criada na comunidade interna, gerenciada pelo criador com métricas agregadas para o Ranking de Equipes.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 2, "maxLength": 60, "description": "Nome da equipe" },
+        "tag": { "type": "string", "minLength": 2, "maxLength": 6, "pattern": "^[A-Z0-9]+$", "description": "Sigla curta da equipe" },
+        "city": { "type": "string", "minLength": 2, "maxLength": 60, "description": "Cidade ou base de treino" },
+        "motto": { "type": "string", "maxLength": 140, "description": "Lema da equipe" },
+        "emblem": { "type": "string", "minLength": 1, "maxLength": 16, "description": "Ícone ou símbolo da equipe" },
+        "accentColor": { "type": "string", "enum": ["cyan", "amber", "emerald", "rose", "violet", "orange"], "description": "Cor principal do escudo" },
+        "creatorId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$", "description": "UID do criador (capitão) da equipe" },
+        "creatorName": { "type": "string", "minLength": 1, "maxLength": 80, "description": "Nome do criador da equipe" },
+        "memberCount": { "type": "number", "description": "Total de integrantes da equipe" },
+        "totalPoints": { "type": "number", "description": "Pontuação total acumulada (XP) dos integrantes" },
+        "totalKm": { "type": "number", "description": "Quilometragem total acumulada (km) dos integrantes" },
+        "monthlyPoints": { "type": "number", "description": "Pontuação mensal acumulada (XP)" },
+        "monthlyKm": { "type": "number", "description": "Quilometragem mensal acumulada (km)" },
+        "avgPaceMinKm": { "type": "number", "description": "Pace médio da equipe em min/km" },
+        "visibility": { "type": "string", "enum": ["community"], "description": "Escopo público na comunidade e rankings" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "name",
+        "tag",
+        "city",
+        "motto",
+        "emblem",
+        "accentColor",
+        "creatorId",
+        "creatorName",
+        "memberCount",
+        "totalPoints",
+        "totalKm",
+        "monthlyPoints",
+        "monthlyKm",
+        "avgPaceMinKm",
+        "visibility",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "TeamMember": {
+      "title": "TeamMember",
+      "description": "Integrante adicionado pelo criador a uma equipe da comunidade.",
+      "type": "object",
+      "properties": {
+        "teamId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "memberId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "avatar": { "type": "string", "maxLength": 16 },
+        "role": { "type": "string", "enum": ["capitao", "integrante"] },
+        "city": { "type": "string", "maxLength": 60 },
+        "ageCategory": { "type": "string", "enum": ["ate-20", "21-30", "31-40", "41-50", "50-plus"] },
+        "gender": { "type": "string", "enum": ["masculino", "feminino"] },
+        "totalPoints": { "type": "number" },
+        "totalKm": { "type": "number" },
+        "monthlyPoints": { "type": "number" },
+        "monthlyKm": { "type": "number" },
+        "avgPaceMinKm": { "type": "number" },
+        "addedBy": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "joinedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "teamId",
+        "memberId",
+        "name",
+        "avatar",
+        "role",
+        "city",
+        "ageCategory",
+        "gender",
+        "totalPoints",
+        "totalKm",
+        "monthlyPoints",
+        "monthlyKm",
+        "avgPaceMinKm",
+        "addedBy",
+        "joinedAt"
+      ]
+    },
+    "DuelSession": {
+      "title": "DuelSession",
+      "description": "Sala de duelo em tempo real entre dois corredores na mesma missão com telemetria GPS sincronizada.",
+      "type": "object",
+      "properties": {
+        "roomCode": { "type": "string", "minLength": 2, "maxLength": 12, "pattern": "^[A-Z0-9\\-]+$" },
+        "missionId": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "missionTitle": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "targetDistanceKm": { "type": "number" },
+        "lapDistanceMeters": { "type": "number" },
+        "status": { "type": "string", "enum": ["waiting", "active", "finished"] },
+        "visibility": { "type": "string", "enum": ["duel"] },
+        "hostId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "hostName": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "hostAvatar": { "type": "string", "minLength": 1, "maxLength": 16 },
+        "hostLat": { "type": "number" },
+        "hostLng": { "type": "number" },
+        "hostHeading": { "type": "number" },
+        "hostDistanceMeters": { "type": "number" },
+        "hostPaceMinKm": { "type": "number" },
+        "hostCurrentLap": { "type": "number" },
+        "hostElapsedSeconds": { "type": "number" },
+        "guestId": { "type": "string", "maxLength": 128 },
+        "guestName": { "type": "string", "maxLength": 80 },
+        "guestAvatar": { "type": "string", "maxLength": 16 },
+        "guestLat": { "type": "number" },
+        "guestLng": { "type": "number" },
+        "guestHeading": { "type": "number" },
+        "guestDistanceMeters": { "type": "number" },
+        "guestPaceMinKm": { "type": "number" },
+        "guestCurrentLap": { "type": "number" },
+        "guestElapsedSeconds": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "roomCode",
+        "missionId",
+        "missionTitle",
+        "targetDistanceKm",
+        "lapDistanceMeters",
+        "status",
+        "visibility",
+        "hostId",
+        "hostName",
+        "hostAvatar",
+        "hostLat",
+        "hostLng",
+        "hostHeading",
+        "hostDistanceMeters",
+        "hostPaceMinKm",
+        "hostCurrentLap",
+        "hostElapsedSeconds",
+        "guestId",
+        "guestName",
+        "guestAvatar",
+        "guestLat",
+        "guestLng",
+        "guestHeading",
+        "guestDistanceMeters",
+        "guestPaceMinKm",
+        "guestCurrentLap",
+        "guestElapsedSeconds",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "DuelLapRecord": {
+      "title": "DuelLapRecord",
+      "description": "Registro de tempo de volta (parcial) de um corredor em um duelo em tempo real.",
+      "type": "object",
+      "properties": {
+        "duelId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "runnerId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "runnerRole": { "type": "string", "enum": ["host", "guest"] },
+        "runnerName": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "lapNumber": { "type": "number" },
+        "lapDistanceMeters": { "type": "number" },
+        "lapTimeSeconds": { "type": "number" },
+        "cumulativeSeconds": { "type": "number" },
+        "lapPaceMinKm": { "type": "number" },
+        "recordedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "duelId",
+        "runnerId",
+        "runnerRole",
+        "runnerName",
+        "lapNumber",
+        "lapDistanceMeters",
+        "lapTimeSeconds",
+        "cumulativeSeconds",
+        "lapPaceMinKm",
+        "recordedAt"
+      ]
     }
   },
   "firestore": {
@@ -38,6 +294,34 @@
     "/users/{userId}": {
       "schema": { "$ref": "#/entities/UserProfile" },
       "description": "Dados do perfil tático do usuário"
+    },
+    "/communityPosts/{postId}": {
+      "schema": { "$ref": "#/entities/CommunityPost" },
+      "description": "Feed interno interconectado de conquistas com foto da câmera e overlay flutuante"
+    },
+    "/communityPosts/{postId}/kudos/{kudoUserId}": {
+      "schema": { "$ref": "#/entities/CommunityKudo" },
+      "description": "Aplausos individuais por usuário em cada publicação"
+    },
+    "/communityPosts/{postId}/comments/{commentId}": {
+      "schema": { "$ref": "#/entities/CommunityComment" },
+      "description": "Comentários de incentivo em cada publicação da comunidade"
+    },
+    "/teams/{teamId}": {
+      "schema": { "$ref": "#/entities/RunningTeam" },
+      "description": "Equipes de corrida da comunidade interna e classificação no Ranking de Equipes"
+    },
+    "/teams/{teamId}/members/{memberId}": {
+      "schema": { "$ref": "#/entities/TeamMember" },
+      "description": "Subcoleção de integrantes gerenciada exclusivamente pelo criador da equipe"
+    },
+    "/duels/{duelId}": {
+      "schema": { "$ref": "#/entities/DuelSession" },
+      "description": "Salas de Duelo 1v1 em tempo real na mesma missão com distância GPS ao vivo"
+    },
+    "/duels/{duelId}/laps/{lapId}": {
+      "schema": { "$ref": "#/entities/DuelLapRecord" },
+      "description": "Tempos de volta comparativos em tempo real de cada corredor no duelo"
     }
   }
 }

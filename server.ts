@@ -35,10 +35,18 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Coach Chatbot Endpoint
+// Coach Chatbot Endpoint (Gemini 4 + Google Search & Google Maps Grounding)
 app.post('/api/chat', async (req, res) => {
   try {
-    const { message, history, userContext, mode = 'default', enableSearch = true } = req.body;
+    const {
+      message,
+      history,
+      userContext,
+      mode = 'default',
+      enableSearch = true,
+      enableMaps = false,
+      userLocation,
+    } = req.body;
 
     if (!message || typeof message !== 'string') {
       res.status(400).json({ error: 'Mensagem inválida ou ausente.' });
@@ -47,23 +55,43 @@ app.post('/api/chat', async (req, res) => {
 
     const ai = getGenAI();
 
-    // Select model according to speed/complexity requirement
-    let modelName = 'gemini-3.6-flash';
-    let config: any = {};
+    // Select active Gemini 4 / 3.1 model according to mode
+    // Note: googleMaps CANNOT be combined with googleSearch in the same request.
+    let modelName = 'gemini-4-hydrogen';
+    const config: any = {};
+
+    const wantsMaps = mode === 'maps' || enableMaps === true;
 
     if (mode === 'fast') {
       modelName = 'gemini-3.1-flash-lite';
+    } else if (wantsMaps) {
+      modelName = 'gemini-4-hydrogen';
+      config.tools = [{ googleMaps: {} }];
+      if (
+        userLocation &&
+        typeof userLocation.lat === 'number' &&
+        typeof userLocation.lng === 'number'
+      ) {
+        config.toolConfig = {
+          retrievalConfig: {
+            latLng: {
+              latitude: userLocation.lat,
+              longitude: userLocation.lng,
+            },
+          },
+        };
+      }
     } else if (mode === 'pro') {
-      modelName = 'gemini-3.1-pro-preview';
+      modelName = 'gemini-4-hydrogen';
       config.thinkingConfig = { thinkingLevel: ThinkingLevel.HIGH };
     } else {
-      modelName = 'gemini-3.6-flash';
+      modelName = 'gemini-4-hydrogen';
       if (enableSearch) {
         config.tools = [{ googleSearch: {} }];
       }
     }
 
-    const systemInstruction = `Você é o 'Coach Tático RunLevel & Consultor de Saúde Esportiva', um treinador profissional especialista em corrida de rua, fisiologia do exercício, biomecânica, prevenção de lesões e nutrição esportiva.
+    const systemInstruction = `Você é o 'Coach Tático Run360X & Consultor de Saúde Esportiva', um treinador profissional especialista em corrida de rua, pista de atletismo (400m/200m), esteira, trail run, fisiologia do exercício, biomecânica, prevenção de lesões e nutrição esportiva.
 Seu objetivo é dar respostas curtas, práticas, motivadoras e cientificamente embasadas para consultas rápidas de atletas.
 
 Sempre que relevante, considere o contexto do atleta:
@@ -73,11 +101,11 @@ Instruções de Estilo & Formato:
 1. Responda em Português do Brasil com tom encorajador, focado em alta performance segura e saúde do atleta.
 2. Use listas curtas com marcadores (bullet points) para facilitar a leitura rápida na tela do celular.
 3. Aborde tópicos como:
-   - Treinos (Longão, Tiros Intervalados de 400m/1k, Tempo Run, Cadência, Zonas de FC, VO2max).
+   - Treinos específicos para Pista 400m, Pista 200m, Esteira (inclinação e velocidade), Estrada/Cidade e Trail Run.
    - Como melhorar velocidade e resistência sem risco de lesão.
+   - Locais reais para correr (pistas de atletismo, parques, trilhas e academias) quando o modo Google Maps estiver ativo.
    - Nutrição pré/pós-treino, hidratação e reposição de eletrólitos.
    - Prevenção de lesões (canelite, fascite plantar, tendinite do aquiles, síndrome do trato iliotibial).
-   - Sono, regeneração muscular, banho gelado e recuperação ativa.
 4. Mantenha as respostas concisas e diretas (3 a 5 parágrafos curtos no máximo).
 5. Se o usuário perguntar algo médico grave, inclua um aviso amigável recomendando acompanhamento médico especializado.`;
 
@@ -109,8 +137,8 @@ Instruções de Estilo & Formato:
       });
     } catch (firstErr: any) {
       console.warn('Primeira tentativa de IA falhou (possível limite de cota/rate limit):', firstErr?.message);
-      
-      // Secondary fallback model attempt without search grounding
+
+      // Secondary fallback model attempt without grounding tools
       try {
         modelUsed = 'gemini-3.1-flash-lite';
         response = await ai.models.generateContent({
@@ -122,10 +150,9 @@ Instruções de Estilo & Formato:
         });
       } catch (secondErr: any) {
         console.warn('Segunda tentativa de IA também falhou:', secondErr?.message);
-        
-        // Return tactical backup response gracefully (HTTP 200) instead of failing with 500
+
         res.json({
-          reply: `⚡ **Coach Tático RUN360X (Modo Suporte de Contingência)**\n\nIdentificamos uma alta demanda temporária no servidor de IA (limite de cota atingido). Aqui estão as orientações táticas para a sua consulta:\n\n• **Cadência & Pace**: Mantenha a cadência entre 165 e 180 Passos/Minuto e priorize a constância nos treinos Z2.\n• **Nutrição & Hidratação**: Reponha 500ml de água/eletrólitos a cada hora de corrida e consuma carboidratos pré-treino.\n• **Prevenção de Lesões**: Se sentir desconforto nas articulações ou canela, reduza a intensidade e aplique gelo local por 15 min.\n\n*(Sua pergunta foi registrada. Tente novamente em alguns instantes para a resposta personalizada completa!)*`,
+          reply: `⚡ **Coach Tático RUN360X (Modo Suporte de Contingência)**\n\nIdentificamos uma alta demanda temporária no servidor de IA (limite de cota atingido). Aqui estão as orientações táticas para a sua consulta:\n\n• **Cadência & Pace**: Mantenha a cadência entre 165 e 180 Passos/Minuto e priorize a constância nos treinos Z2.\n• **Pista & Esteira**: Em pistas de 400m ou 200m, controle as parciais sem queimar a primeira volta; na esteira, 1% de inclinação simula o arrasto do ar externo.\n• **Nutrição & Hidratação**: Reponha 500ml de água/eletrólitos a cada hora de corrida e consuma carboidratos pré-treino.\n\n*(Sua pergunta foi registrada. Tente novamente em alguns instantes para a resposta personalizada completa!)*`,
           sources: [],
           modelUsed: 'contingency-backup',
         });
@@ -135,19 +162,45 @@ Instruções de Estilo & Formato:
 
     const replyText = response?.text || 'Não foi possível gerar uma resposta no momento. Tente novamente em instantes.';
 
-    // Grounding metadata check for URLs if search grounding was triggered
+    // Extract Web Search AND Google Maps grounding URLs
     const groundingChunks = response?.candidates?.[0]?.groundingMetadata?.groundingChunks;
-    const sources = Array.isArray(groundingChunks)
-      ? groundingChunks
-          .map((c: any) => c.web)
-          .filter(Boolean)
-          .map((w: any) => ({ title: w.title, uri: w.uri }))
-      : [];
+    const sources: Array<{ title: string; uri: string; type: 'web' | 'maps' }> = [];
+
+    if (Array.isArray(groundingChunks)) {
+      for (const chunk of groundingChunks as any[]) {
+        if (chunk?.web?.uri) {
+          sources.push({
+            title: chunk.web.title || chunk.web.uri,
+            uri: chunk.web.uri,
+            type: 'web',
+          });
+        }
+        if (chunk?.maps?.uri) {
+          sources.push({
+            title: chunk.maps.title || 'Ver no Google Maps',
+            uri: chunk.maps.uri,
+            type: 'maps',
+          });
+        }
+        const reviewSnippets = chunk?.maps?.placeAnswerSources?.reviewSnippets;
+        if (Array.isArray(reviewSnippets)) {
+          for (const snippet of reviewSnippets) {
+            if (snippet?.googleMapsUri) {
+              sources.push({
+                title: snippet.title || chunk?.maps?.title || 'Avaliação no Google Maps',
+                uri: snippet.googleMapsUri,
+                type: 'maps',
+              });
+            }
+          }
+        }
+      }
+    }
 
     res.json({
       reply: replyText,
-      sources: sources,
-      modelUsed: modelUsed,
+      sources,
+      modelUsed,
     });
   } catch (error: any) {
     console.error('Erro na API de Chat:', error);
@@ -159,13 +212,13 @@ Instruções de Estilo & Formato:
   }
 });
 
-// Community Challenge Feed Search Route (Google Search Grounding)
+// Community Challenge Feed Search Route (Google Search Grounding with Gemini 4)
 app.post('/api/community-challenges', async (req, res) => {
   try {
     const { location = 'São Paulo, Brasil', category = 'todas' } = req.body;
 
     const ai = getGenAI();
-    const modelName = 'gemini-3.6-flash';
+    const modelName = 'gemini-4-hydrogen';
 
     const prompt = `Pesquise no Google usando o Grounding os eventos reais e atuais/futuros de corrida de rua, meias maratonas, circuitos de 5K/10K, corridas noturnas, ultramaratonas ou corridas de montanha/trail run ocorrendo em ou próximos de: "${location}".
 Filtro de categoria solicitado pelo usuário: "${category}".
@@ -183,32 +236,14 @@ Cada objeto no array JSON deve ter as seguintes propriedades exatas:
 - "difficulty": string ("Iniciante", "Intermediário", "Avançado", "Elite")
 - "description": string (Descrição motivadora do evento em tom tático de 2 frases)
 - "searchUrl": string (URL do site oficial ou página de inscrição do evento, se encontrada no Google Search)
-- "participantsCount": number (Número estimado de corredores na comunidade aceitando este desafio, ex: 142)
-
-Exemplo de formato esperado:
-[
-  {
-    "id": "evt-1",
-    "title": "Maratona Internacional de São Paulo",
-    "organizer": "Yescom / Prefeitura de SP",
-    "location": "Obelisco do Ibirapuera, São Paulo - SP",
-    "date": "05 de Abril de 2026",
-    "distances": "5K, 10K, 21K, 42K",
-    "xpReward": 1000,
-    "challengeType": "Maratona",
-    "difficulty": "Avançado",
-    "description": "Desafio lendário pelas principais avenidas da capital. Domine o asfalto e vença o fantasma das ladeiras paulistanas.",
-    "searchUrl": "https://www.yescom.com.br",
-    "participantsCount": 320
-  }
-]`;
+- "participantsCount": number (Número estimado de corredores na comunidade aceitando este desafio, ex: 142)`;
 
     const response = await ai.models.generateContent({
       model: modelName,
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
-        systemInstruction: "Você é o radar tático de eventos e desafios comunitários de corrida do RunLevel. Retorne resultados precisos e reais baseados na busca no Google.",
+        systemInstruction: "Você é o radar tático de eventos e desafios comunitários de corrida do Run360X. Retorne resultados precisos e reais baseados na busca no Google.",
       },
     });
 
@@ -232,7 +267,7 @@ Exemplo de formato esperado:
       } else {
         events = JSON.parse(replyText);
       }
-    } catch (e) {
+    } catch {
       console.warn('Fallback: Não foi possível realizar JSON parse estrito dos eventos');
     }
 

@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { User, Shield, Compass, Activity, Heart, Flame, Scale, Ruler, Calendar, Check, X, Sparkles, Mail } from 'lucide-react';
-import { UserProfile } from '../types';
+import { AthleteGender, UserProfile } from '../types';
 
 interface OnboardingModalProps {
   currentProfile: UserProfile;
-  onSaveProfile: (profileData: { name: string; email?: string; age: number; heightCm: number; weightKg: number }) => void;
+  onSaveProfile: (profileData: { name: string; email?: string; age: number; heightCm: number; weightKg: number; gender: AthleteGender }) => void;
   onClose?: () => void;
   isInitialSetup?: boolean;
   theme?: 'dark' | 'light';
@@ -24,6 +24,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   const [age, setAge] = useState<number | ''>(currentProfile.age || 28);
   const [heightCm, setHeightCm] = useState<number | ''>(currentProfile.heightCm || 175);
   const [weightKg, setWeightKg] = useState<number | ''>(currentProfile.weightKg || 70);
+  const [gender, setGender] = useState<AthleteGender>(currentProfile.gender || 'masculino');
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
@@ -78,6 +79,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
       age: Number(age),
       heightCm: Number(heightCm),
       weightKg: Number(weightKg),
+      gender,
     });
   };
 
@@ -260,6 +262,40 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 }`}
               />
               {errors.weightKg && <p className="text-[11px] text-rose-500 font-mono">{errors.weightKg}</p>}
+            </div>
+          </div>
+
+          {/* Categoria de Ranking: Masculino / Feminino */}
+          <div className="space-y-1.5">
+            <label className={`text-xs font-mono font-bold uppercase flex items-center gap-1.5 ${
+              isLight ? 'text-slate-700' : 'text-slate-300'
+            }`}>
+              <Shield className="w-3.5 h-3.5 text-cyan-500" /> Categoria nos Rankings (Gênero)
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              {(['masculino', 'feminino'] as AthleteGender[]).map((option) => {
+                const isSelected = gender === option;
+                return (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => setGender(option)}
+                    className={`py-3 px-4 rounded-2xl border text-xs font-mono font-bold uppercase tracking-wider transition cursor-pointer flex items-center justify-center gap-2 ${
+                      isSelected
+                        ? option === 'feminino'
+                          ? 'bg-fuchsia-500 border-fuchsia-400 text-white shadow-sm'
+                          : isLight
+                            ? 'bg-orange-500 border-orange-500 text-white shadow-sm'
+                            : 'bg-cyan-500 border-cyan-400 text-slate-950 shadow-sm'
+                        : isLight
+                          ? 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                          : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700'
+                    }`}
+                  >
+                    <span>{option === 'feminino' ? '♀ Feminino' : '♂ Masculino'}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 

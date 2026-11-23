@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Trophy, Award, Flame, Zap, Edit2, CheckCircle, Sparkles, Star } from 'lucide-react';
+import { Trophy, Award, Flame, Zap, Edit2, CheckCircle, Sparkles, Star, Share2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { SocialShareModal, SocialSharePayload } from './SocialShareModal';
 
 export interface PersonalRecord {
   id: string;
@@ -29,6 +30,47 @@ export const PersonalRecordsWall: React.FC<PersonalRecordsWallProps> = ({ theme 
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [newValue, setNewValue] = useState('');
+  const [sharePayload, setSharePayload] = useState<SocialSharePayload | null>(null);
+
+  const openRecordShare = (rec: PersonalRecord) => {
+    setSharePayload({
+      kind: 'record',
+      badge: `NOVO RECORDE PESSOAL • ${rec.category.toUpperCase()}`,
+      title: rec.title,
+      subtitle: `Marca desbloqueada em ${rec.dateUnlocked} no RUN360X`,
+      metrics: [
+        { label: 'Recorde (RP)', value: rec.bestValue },
+        { label: 'Categoria', value: rec.category.toUpperCase() },
+        { label: 'Conquistado em', value: rec.dateUnlocked },
+        { label: 'Status', value: 'OFICIAL 🏆' },
+      ],
+      defaultCaption:
+        `${rec.icon} NOVO RECORDE PESSOAL NO RUN360X!\n` +
+        `🏆 ${rec.title}: ${rec.bestValue}\n` +
+        `📅 Registrado em ${rec.dateUnlocked}\n\n` +
+        `Mais um limite superado! #RUN360X #RecordePessoal #RP #Corrida #Running`,
+    });
+  };
+
+  const openWallShare = () => {
+    setSharePayload({
+      kind: 'record',
+      badge: 'PAREDÃO DE RECORDES PESSOAIS',
+      title: 'Minhas Melhores Marcas',
+      subtitle: 'Galeria oficial de Recordes Pessoais (RP) no RUN360X',
+      metrics: records.slice(0, 4).map((r) => ({
+        label: r.category.toUpperCase(),
+        value: r.bestValue,
+      })),
+      defaultCaption:
+        `🏆 Meus Recordes Pessoais (RP) no RUN360X:\n` +
+        records
+          .slice(0, 4)
+          .map((r) => `${r.icon} ${r.title}: ${r.bestValue}`)
+          .join('\n') +
+        `\n\n#RUN360X #RecordePessoal #Corrida #Running`,
+    });
+  };
 
   const triggerConfetti = () => {
     confetti({
@@ -69,17 +111,32 @@ export const PersonalRecordsWall: React.FC<PersonalRecordsWallProps> = ({ theme 
           </p>
         </div>
 
-        <button
-          onClick={triggerConfetti}
-          className={`px-4 py-2 rounded-2xl font-mono text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shrink-0 ${
-            isLight
-              ? 'bg-amber-100 hover:bg-amber-200 text-amber-800 border border-amber-300'
-              : 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border border-amber-500/30'
-          }`}
-        >
-          <Sparkles className="w-4 h-4 text-amber-500" />
-          <span>Celebrar RP</span>
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={openWallShare}
+            className={`px-4 py-2 rounded-2xl font-mono text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+              isLight
+                ? 'bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200'
+                : 'bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/40'
+            }`}
+          >
+            <Share2 className="w-4 h-4" />
+            <span>Compartilhar RPs</span>
+          </button>
+
+          <button
+            onClick={triggerConfetti}
+            className={`px-4 py-2 rounded-2xl font-mono text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shrink-0 ${
+              isLight
+                ? 'bg-amber-100 hover:bg-amber-200 text-amber-800 border border-amber-300'
+                : 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border border-amber-500/30'
+            }`}
+          >
+            <Sparkles className="w-4 h-4 text-amber-500" />
+            <span>Celebrar RP</span>
+          </button>
+        </div>
       </div>
 
       {/* Grid of Records */}
@@ -126,16 +183,27 @@ export const PersonalRecordsWall: React.FC<PersonalRecordsWallProps> = ({ theme 
                     <span className="text-xl font-black font-mono text-slate-900 dark:text-white">
                       {rec.bestValue}
                     </span>
-                    <button
-                      onClick={() => {
-                        setEditingId(rec.id);
-                        setNewValue(rec.bestValue);
-                      }}
-                      className="p-1 text-slate-400 hover:text-amber-500 cursor-pointer"
-                      title="Editar Recorde"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => openRecordShare(rec)}
+                        className="p-1.5 text-slate-400 hover:text-cyan-400 cursor-pointer transition"
+                        title="Compartilhar este Recorde nas redes sociais"
+                        aria-label={`Compartilhar ${rec.title}`}
+                      >
+                        <Share2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditingId(rec.id);
+                          setNewValue(rec.bestValue);
+                        }}
+                        className="p-1.5 text-slate-400 hover:text-amber-500 cursor-pointer transition"
+                        title="Editar Recorde"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -143,6 +211,14 @@ export const PersonalRecordsWall: React.FC<PersonalRecordsWallProps> = ({ theme 
           );
         })}
       </div>
+
+      {sharePayload && (
+        <SocialShareModal
+          payload={sharePayload}
+          onClose={() => setSharePayload(null)}
+          theme={theme}
+        />
+      )}
     </div>
   );
 };

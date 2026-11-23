@@ -1,22 +1,73 @@
 import React, { useEffect, useState } from 'react';
-import { UserProfile } from '../types';
-import { Trophy, Shield, MapPin, Zap, Flame, Award, Calendar, User, Scale, Ruler, Edit2, Sparkles } from 'lucide-react';
+import { UserProfile, WeeklyGoalConfig, WorkoutStats } from '../types';
+import { Trophy, Shield, MapPin, Zap, Flame, Award, Calendar, User, Scale, Ruler, Edit2, Sparkles, Share2 } from 'lucide-react';
 import { formatPace, formatTime } from '../utils/geo';
+import { SocialShareModal, SocialSharePayload } from './SocialShareModal';
+import { WeeklyGoalsConfig } from './WeeklyGoalsConfig';
 
 interface ProfileStatsProps {
   profile: UserProfile;
   onEditProfile?: () => void;
   onUpdateWeight?: (newWeightKg: number) => void;
+  onUpdateWeeklyGoals?: (newGoals: WeeklyGoalConfig) => void;
   theme?: 'dark' | 'light';
 }
 
-export const ProfileStats: React.FC<ProfileStatsProps> = ({ profile, onEditProfile, onUpdateWeight, theme = 'dark' }) => {
+export const ProfileStats: React.FC<ProfileStatsProps> = ({
+  profile,
+  onEditProfile,
+  onUpdateWeight,
+  onUpdateWeeklyGoals,
+  theme = 'dark',
+}) => {
   const isLight = theme === 'light';
 
   // Weight edit states
   const [isEditingWeight, setIsEditingWeight] = useState<boolean>(false);
   const [newWeightInput, setNewWeightInput] = useState<number | ''>(profile.weightKg || 70);
   const [weightUpdatedMessage, setWeightUpdatedMessage] = useState<boolean>(false);
+  const [sharePayload, setSharePayload] = useState<SocialSharePayload | null>(null);
+
+  const openProfileShare = () => {
+    setSharePayload({
+      kind: 'profile',
+      badge: `ATLETA NÍVEL ${profile.level} • RUN360X`,
+      title: profile.name || 'Atleta RUN360X',
+      subtitle: `${profile.conqueredSectors.length} setores dominados • ${profile.badges.filter((b) => b.unlockedAt).length} insígnias desbloqueadas`,
+      metrics: [
+        { label: 'Distância Total', value: `${profile.totalDistanceKm.toFixed(1)} km` },
+        { label: 'Experiência', value: `${profile.xp} XP` },
+        { label: 'Nível Tático', value: `LVL ${profile.level}` },
+        { label: 'Setores', value: `${profile.conqueredSectors.length}` },
+      ],
+      defaultCaption:
+        `🏃‍♂️ Meu perfil de atleta no RUN360X!\n` +
+        `⚡ Nível ${profile.level} • ${profile.xp} XP acumulados\n` +
+        `📏 ${profile.totalDistanceKm.toFixed(1)} km percorridos • 🏆 ${profile.conqueredSectors.length} setores dominados\n\n` +
+        `Bora correr e conquistar novos setores juntos! #RUN360X #Corrida #Running #Atleta`,
+    });
+  };
+
+  const openMissionShare = (h: WorkoutStats) => {
+    setSharePayload({
+      kind: 'workout',
+      badge: 'HISTÓRICO DE MISSÃO • RUN360X',
+      title: h.workoutTitle || h.sectorConquered || 'Corrida Tática',
+      subtitle: `${h.date} • Setor: ${h.sectorConquered || 'Urbano'}`,
+      metrics: [
+        { label: 'Distância', value: `${(h.totalDistanceMeters / 1000).toFixed(2)} km` },
+        { label: 'Pace Médio', value: formatPace(h.avgPaceMinKm) },
+        { label: 'Duração', value: formatTime(h.durationSeconds) },
+        { label: 'XP Ganho', value: `+${h.xpGained} XP` },
+      ],
+      defaultCaption:
+        `🔥 Treino concluído no RUN360X!\n` +
+        `📍 ${h.sectorConquered || h.workoutTitle}\n` +
+        `📏 ${(h.totalDistanceMeters / 1000).toFixed(2)} km • ⏱️ Pace ${formatPace(h.avgPaceMinKm)}/km • ⏳ ${formatTime(h.durationSeconds)}\n` +
+        `🏆 +${h.xpGained} XP acumulados!\n\n` +
+        `#RUN360X #Corrida #Treino #Running`,
+    });
+  };
 
   // Sync state if profile changes
   useEffect(() => {
@@ -86,6 +137,19 @@ export const ProfileStats: React.FC<ProfileStatsProps> = ({ profile, onEditProfi
                 <span className="text-lg font-black font-mono text-emerald-500">{profile.conqueredSectors.length}</span>
               </div>
             </div>
+
+            <button
+              onClick={openProfileShare}
+              className={`p-3 rounded-2xl border font-mono text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                isLight
+                  ? 'bg-orange-50 hover:bg-orange-100 border-orange-200 text-orange-700'
+                  : 'bg-cyan-950/80 hover:bg-cyan-900 border-cyan-500/40 text-cyan-300'
+              }`}
+              title="Compartilhar perfil nas redes sociais"
+            >
+              <Share2 className="w-4 h-4" />
+              <span className="hidden sm:inline">Compartilhar</span>
+            </button>
 
             {onEditProfile && (
               <button
@@ -333,6 +397,19 @@ export const ProfileStats: React.FC<ProfileStatsProps> = ({ profile, onEditProfi
         })()}
       </div>
 
+      {/* Configuração de Metas Semanais (com progresso visual baseado no histórico) */}
+      <WeeklyGoalsConfig
+        history={profile.history}
+        totalDistanceKm={profile.totalDistanceKm}
+        weeklyGoals={profile.weeklyGoals}
+        onSaveWeeklyGoals={(newGoals) => {
+          if (onUpdateWeeklyGoals) {
+            onUpdateWeeklyGoals(newGoals);
+          }
+        }}
+        theme={theme}
+      />
+
       {/* Conquered Sectors Section */}
       <div className="p-6 bg-slate-900 border border-slate-800 rounded-3xl space-y-3">
         <h3 className="text-sm font-bold text-slate-300 uppercase font-mono tracking-wider flex items-center gap-2">
@@ -410,12 +487,29 @@ export const ProfileStats: React.FC<ProfileStatsProps> = ({ profile, onEditProfi
                   <span className="text-xs font-mono font-bold text-amber-400 bg-amber-950/40 px-3 py-1 rounded-lg border border-amber-500/30">
                     +{h.xpGained} XP
                   </span>
+                  <button
+                    type="button"
+                    onClick={() => openMissionShare(h)}
+                    className="p-2 rounded-lg border border-cyan-500/30 bg-cyan-950/60 hover:bg-cyan-900 text-cyan-300 transition cursor-pointer"
+                    title="Compartilhar esta missão nas redes sociais"
+                    aria-label="Compartilhar missão"
+                  >
+                    <Share2 className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {sharePayload && (
+        <SocialShareModal
+          payload={sharePayload}
+          onClose={() => setSharePayload(null)}
+          theme={theme}
+        />
+      )}
     </div>
   );
 };
